@@ -1,0 +1,4 @@
+.htpasswd
+data/*
+*swp
+fit.log
