@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Shopping Lists</title>
+<style>
+  body { font-family: sans-serif; padding: 1em; }
+  #top-menu { margin-bottom: 1em; }
+  #list-container { margin-top: 1em; }
+  .section { border: 1px solid #ccc; margin: 0.5em 0; padding: 0.5em; }
+  .section-header { font-weight: bold; cursor: pointer; display: flex; align-items: center; gap: 0.5em; }
+  .section-header .title { flex: 1; text-align: left; min-width: 0; }
+  .line { padding: 0.2em 0; display: flex; align-items: center; }
+  .line-text { margin-left: 0.5em; flex: 1; cursor: text; }
+  .menu { margin-left: 0.5em; }
+</style>
+</head>
+<body>
+
+<div id="top-menu">
+  <select id="list-select"></select>
+  <button id="new-list">New List</button>
+  <button id="delete-list">Delete List</button>
+</div>
+
+<h1 id="list-name">Shopping List</h1>
+<div id="list-container"></div>
+
+<script src="shopping.js"></script>
+</body>
+</html>

@@ -1,0 +1,49 @@
+
+This is my little shopping list app
+
+Started in Sep-2025, while I was trying to move away from Google.
+
+The system consists of a front-end that runs in a browser, desktop or mobile,
+and a back-end that is a perl cgi script.  It can do three things:
+  GET .../shopping/    - Get a list of available JSON files
+  GET .../shopping/api.cgi/shop  - return the contents of shop.json for the current user
+  POST .../shopping/api.cgi/shop - create or update the shop.json file
+The back-end also serves static files line index.html, shopping.js and .css, etc
+
+Here is a canonical example of the json:
+
+{
+  "items": [
+    { "type": "section", "title": "Meats", "collapsed": false, "items": [
+      { "type": "item", "text": "Bacon", "checked": false },
+      { "type": "item", "text": "Steak", "checked": true }
+    ]},
+    { "type": "section", "title": "Vegetables", "collapsed": true, "items": [
+      { "type": "item", "text": "Carrots", "checked": true },
+      { "type": "text", "text": "Remember to check the special offers" }
+    ]}
+  ]
+}
+
+There will be more fields later, for example dates when created and modified.
+
+
+The UI consists of a top line with the name of the list we are working with,
+and a pull-down menu with options to add a new list, delete this one, and the
+same operations as in a section menu.
+
+The main body of the UI consists of (nested) sections that contains lines. Most
+have a checkbox on them, some can be plain text. Each section head will have
+a pulldown menu with options for (un)checking all items in it,  for adding new
+items, for filtering the display to show only checked or unchecked items, etc.
+
+The item lines have (a optional) checkbox, some text, and a pulldown menu with
+options for deleting the item, adding a new one, or duplicating this one.
+
+Clicking on any text (section title or item text) allows editing it.
+
+After inserting a new item, the UI continues to insert a new one, unless the
+text is empty.
+
+Any changes made in the UI should be autosaved to back-end after a few seconds.
+
