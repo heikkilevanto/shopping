@@ -11,7 +11,7 @@ my $username = $ENV{REMOTE_USER} || "heikki";  # from HTTP auth
 my $path_info= $ENV{PATH_INFO} || "shop";
 $path_info =~ s/ /_/g;  # skip spaces
 
-my $file     = "$base_dir/$username/$path_info";
+my $file     = "$base_dir/$username" . $path_info;
 my $fullfile = "$file.json";
 
 # ensure dir exists
@@ -20,9 +20,13 @@ print STDERR "Shopping list: u='$username' f='$file' \n";
 
 if ($ENV{REQUEST_METHOD} eq 'GET' && ($path_info eq '' || $path_info eq '/') ) {# List available files
       my $userdir = "$base_dir/$username";
-      opendir my $dh, $userdir or die "Cannot open $userdir: $!";
-      my @files = grep { /\.json$/ && -f "$userdir/$_" } readdir $dh;
-      closedir $dh;
+      error(404,"User dir not found", $userdir)
+        unless -d $userdir;
+      chdir $userdir or error (500, "", "Can not chdir to $userdir");
+      my $flist = `ls -t`;
+      chomp($flist);
+      print STDERR "Got flist: '$flist' \n";
+      my @files = split(/\n/, $flist);
       if (@files) {
         s/([^.]+)\.json/"$1"/ for @files;
         print "Content-Type: application/json\r\n\r\n";
