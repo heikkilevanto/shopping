@@ -245,6 +245,7 @@ function updateListSelect() {
 
 
 function selectList(name, data) {
+  document.title = name;
   if (data) {
     currentList = data;
     render();
