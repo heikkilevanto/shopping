@@ -65,8 +65,8 @@ elsif ($ENV{REQUEST_METHOD} eq 'POST') {
         $read_total += $n;
     }
 
-    if (-e $file) {
-        copy($file, "$fullfile.bak") or warn "Backup failed: $!";
+    if (-e $fullfile) {
+        copy($fullfile, "$fullfile.bak") or warn "Backup failed: $!";
      } else {
        print STDERR "File '$fullfile' does not exist, creating it\n";
     }
