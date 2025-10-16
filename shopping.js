@@ -5,6 +5,14 @@ let saveTimeout;
 let focusItem = null;
 let isSaving = false;
 let isModified = false;
+let draggedItem = null;
+let draggedFrom = null;
+let touchDraggedItem = null;
+let touchDraggedFrom = null;
+let touchClone = null;
+let touchStartX = 0;
+let touchStartY = 0;
+let touchDragging = false;
 
 // ================= Build page =================
 const body = document.body;
@@ -348,6 +356,9 @@ function focusEditable(el){
 function renderItem(container,item,parentItems){
   const line=document.createElement('div');
   line.className='line';
+  line.draggable = true;
+  line._item = item;
+  line._parentItems = parentItems;
   if(item.type==='item'){
     const cb=document.createElement('input');
     cb.type='checkbox';
@@ -413,6 +424,122 @@ function renderItem(container,item,parentItems){
     scheduleSave();
   };
   line.appendChild(span);
+
+  // Dragging and dropping on mobile
+  line.addEventListener('touchstart', e => {
+    const touch = e.touches[0];
+    touchStartX = touch.pageX;
+    touchStartY = touch.pageY;
+    touchDragging = false;
+  });
+
+  line.addEventListener('touchmove', e => {
+    const touch = e.touches[0];
+    const dx = Math.abs(touch.pageX - touchStartX);
+    const dy = Math.abs(touch.pageY - touchStartY);
+
+    if (!touchDragging && (dx > 5 || dy > 5)) {
+      touchDragging = true;
+
+      // now create the clone and start dragging
+      touchDraggedItem = item;
+      touchDraggedFrom = parentItems;
+
+      touchClone = line.cloneNode(true);
+      touchClone.style.position = 'absolute';
+      touchClone.style.pointerEvents = 'none';
+      touchClone.style.opacity = '0.7';
+      touchClone.style.zIndex = '1000';
+      document.body.appendChild(touchClone);
+    }
+
+    if (touchDragging) {
+      touchClone.style.left = touch.pageX - touchClone.offsetWidth/2 + 'px';
+      touchClone.style.top = touch.pageY - touchClone.offsetHeight/2 + 'px';
+      e.preventDefault(); // prevent scrolling
+    }
+  });
+
+
+  line.addEventListener('touchend', e => {
+    if (!touchDraggedItem) return;
+
+    // find element under finger
+    const touch = e.changedTouches[0];
+    const target = document.elementFromPoint(touch.clientX, touch.clientY);
+
+    // find closest item container
+    let targetParent = target;
+    while (targetParent && !targetParent.classList.contains('line')) {
+      targetParent = targetParent.parentElement;
+    }
+
+    if (targetParent) {
+      const targetItem = targetParent._item;
+      const targetItems = targetParent._parentItems;
+
+      // remove from old array
+      touchDraggedFrom.splice(touchDraggedFrom.indexOf(touchDraggedItem), 1);
+
+      // insert before target
+      const idx = targetItems.indexOf(targetItem);
+      targetItems.splice(idx, 0, touchDraggedItem);
+
+      render();
+      scheduleSave();
+    }
+
+    // clean up
+    if (touchClone) document.body.removeChild(touchClone);
+    touchClone = null;
+    touchDraggedItem = null;
+    touchDraggedFrom = null;
+  });
+
+  // start dragging (on pc)
+  line.addEventListener('dragstart', e => {
+    draggedItem = item;
+    draggedFrom = parentItems;
+    e.dataTransfer.effectAllowed = 'move';
+    setTimeout(() => line.style.opacity = '0.4', 0);
+  });
+
+  // drag ends
+  line.addEventListener('dragend', () => {
+    line.style.opacity = '1';
+    draggedItem = null;
+    draggedFrom = null;
+  });
+
+  // highlight possible drop targets
+  line.addEventListener('dragover', e => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+    line.style.borderTop = '2px solid #888';
+  });
+
+  line.addEventListener('dragleave', () => {
+    line.style.borderTop = '';
+  });
+
+  // handle drop
+  line.addEventListener('drop', e => {
+    e.preventDefault();
+    line.style.borderTop = '';
+
+    if (!draggedItem) return;
+
+    // remove from old array
+    draggedFrom.splice(draggedFrom.indexOf(draggedItem), 1);
+
+    // insert before this item
+    const targetIndex = parentItems.indexOf(item);
+    parentItems.splice(targetIndex, 0, draggedItem);
+
+    render();
+    scheduleSave();
+  });
+
   container.appendChild(line);
 }
 
@@ -478,6 +605,22 @@ function renderSection(container,section,parentSections){
   sec.appendChild(body);
   container.appendChild(sec);
   renderItems(body,section.items,section.items, section);
+
+  const dropEnd = document.createElement('div');
+  dropEnd.style.height = '10px';
+  dropEnd.addEventListener('dragover', e => e.preventDefault());
+
+  dropEnd.addEventListener('drop', e => {
+    e.preventDefault();
+    if (!draggedItem) return;
+
+    draggedFrom.splice(draggedFrom.indexOf(draggedItem), 1);
+    section.items.push(draggedItem);
+    render();
+    scheduleSave();
+  });
+  sec.appendChild(dropEnd);
+
   if(section.title.trim()==='' && focusItem===null) focusItem=section;
 }
 
@@ -517,7 +660,10 @@ function render(){
   }
 }
 
+
 // ================= Init =================
+//
+
 fetch('/shopping/api.cgi/')
   .then(r=>r.json())
   .then(data=>{
@@ -525,3 +671,4 @@ fetch('/shopping/api.cgi/')
     if(allLists.length) selectList(allLists[0].name);
   })
   .catch(err=>console.log('Using default list:',err));
+
