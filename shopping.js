@@ -210,6 +210,45 @@ function deleteCurrentList() {
   currentList = null;
   render();
 }
+function traverseSections(items, fn) {
+  items.forEach(item => {
+    if (item.type === 'section') {
+      fn(item);
+      traverseSections(item.items, fn); // recurse into subsections
+    }
+  });
+}
+
+function expandAll() {
+  if (!currentList) return;
+  traverseSections(currentList.items, sec => sec.collapsed = false);
+  render();
+  scheduleSave();
+}
+
+function collapseAll() {
+  if (!currentList) return;
+  traverseSections(currentList.items, sec => sec.collapsed = true);
+  render();
+  scheduleSave();
+}
+
+function clearAllFilters() {
+  if (!currentList) return;
+  traverseSections(currentList.items, sec => sec.filter = 'all');
+  render();
+}
+
+function addMenuItem(menu, text, onClick) {
+  const div = document.createElement('div');
+  div.textContent = text;
+  div.style.padding = '4px 12px';
+  div.style.cursor = 'pointer';
+  div.onmouseover = () => div.style.background = '#eee';
+  div.onmouseout = () => div.style.background = '';
+  div.onclick = () => { onClick(); hideMenu(); };
+  menu.appendChild(div);
+}
 
 // Build menu items dynamically
 function buildMenu() {
@@ -218,21 +257,18 @@ function buildMenu() {
   menu.style.background = bg;
   menu.style.color = getContrastColor(bg);
 
-  // New
-  const newItem=document.createElement('div');
-  newItem.textContent='New List';
-  newItem.style.padding='4px 12px';
-  newItem.style.cursor='pointer';
-  newItem.onclick=()=>{ hideMenu(); createNewList(); };
-  menu.appendChild(newItem);
+  addMenuItem(menu, 'New List', createNewList);
+  addMenuItem(menu, 'Delete List', deleteCurrentList);
+  // separator
+  const sep=document.createElement('div');
+  sep.style.borderTop='1px solid #ccc';
+  sep.style.margin='4px 0';
+  menu.appendChild(sep);
 
-  // Delete
-  const delItem=document.createElement('div');
-  delItem.textContent='Delete List';
-  delItem.style.padding='4px 12px';
-  delItem.style.cursor='pointer';
-  delItem.onclick=()=>{ hideMenu(); deleteCurrentList(); };
-  menu.appendChild(delItem);
+  addMenuItem(menu, 'Expand All', expandAll);
+  addMenuItem(menu, 'Collapse All', collapseAll);
+  addMenuItem(menu, 'Clear All Filters', clearAllFilters);
+
 
   // Color picker
   const colorItem = document.createElement('div');
@@ -256,10 +292,10 @@ function buildMenu() {
   menu.appendChild(colorItem);
 
   // separator
-  const sep=document.createElement('div');
-  sep.style.borderTop='1px solid #ccc';
-  sep.style.margin='4px 0';
-  menu.appendChild(sep);
+  const sep2=document.createElement('div');
+  sep2.style.borderTop='1px solid #ccc';
+  sep2.style.margin='4px 0';
+  menu.appendChild(sep2);
 
   // list entries
   allLists.forEach(lst=>{
