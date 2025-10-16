@@ -306,9 +306,30 @@ function renderItem(container,item,parentItems){
       e.preventDefault();
       let text=span.textContent.trim();
       if(text===''){ span.blur(); return; }
-      if(text.startsWith('o ')){ item.type='item'; item.checked=false; text=text.slice(2).trim(); }
-      else if(text.startsWith('x ')){ item.type='item'; item.checked=true; text=text.slice(2).trim(); }
-      else if(text.startsWith('.')) item.type='text';
+      if(text.startsWith('o ')){
+        item.type='item';
+        item.checked=false;
+        text=text.slice(2).trim();
+      } else if(text.startsWith('x ')){
+        item.type='item';
+        item.checked=true;
+        text=text.slice(2).trim();
+      } else if(text.startsWith('.')) {
+        item.type='text';
+      } else if(text.startsWith('s ')){
+        const idx = parentItems.indexOf(item);
+        const newSection = {
+          type: 'section',
+          title: text.slice(2).trim(),
+          collapsed: false,
+          items: [{ type: 'item', text: '', checked: false }]
+        };
+        parentItems.splice(idx, 1, newSection);
+        focusItem = newSection.items[0];
+        render();
+        scheduleSave();
+        return;  // stop further processing
+      }
       item.text=text;
       const newItem={type:item.type,text:"",checked:false};
       const idx=parentItems.indexOf(item);
