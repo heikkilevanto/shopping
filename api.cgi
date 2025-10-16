@@ -23,7 +23,7 @@ if ($ENV{REQUEST_METHOD} eq 'GET' && ($path_info eq '' || $path_info eq '/') ) {
       error(404,"User dir not found", $userdir)
         unless -d $userdir;
       chdir $userdir or error (500, "", "Can not chdir to $userdir");
-      my $flist = `ls -t`;
+      my $flist = `ls -t *.json`;
       chomp($flist);
       print STDERR "Got flist: '$flist' \n";
       my @files = split(/\n/, $flist);
@@ -82,15 +82,16 @@ elsif ($ENV{REQUEST_METHOD} eq 'POST') {
 elsif ($ENV{REQUEST_METHOD} eq 'DELETE') {
   # TODO
     my $list_name = $1;
-    if (-f $file) {
+    if (-f $fullfile) {
       my $del = "$fullfile.DEL";
       unlink ($del) if -f $del;
-      rename($file, $del) or error (500, "Internal Error", "Could not rename to $del");
+      rename($fullfile, $del) or error (500, "Internal Error", "Could not rename to $del");
       print "Status: 204 No Content\n\n";
     } else {
-      error(404, "Not Found", "");
+      error(404, "Not Found", "File '$fullfile' not found");
     }
 }
+
 else {
     error("400", "Unsupported method", "Unsupported method: '$ENV{REQUEST_METHOD}'  ");
 }

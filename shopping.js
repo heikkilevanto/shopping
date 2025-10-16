@@ -7,6 +7,80 @@ const container = document.getElementById('list-container');
 const listName = document.getElementById('list-name');
 let focusItem = null;  // global variable to track the item to focus
 
+// ----- Menu next to title -----
+const menuButton = document.createElement('button');
+menuButton.textContent = '☰';
+menuButton.id = 'menu-button';
+menuButton.style.marginLeft = '0.5em';
+
+const menu = document.createElement('div');
+menu.id = 'menu';
+menu.style.display = 'none';
+menu.style.position = 'absolute';
+menu.style.background = '#fff';
+menu.style.border = '1px solid #ccc';
+menu.style.padding = '4px 0';
+menu.style.boxShadow = '0 2px 5px rgba(0,0,0,0.2)';
+menu.style.zIndex = '10';
+
+const menuItems = [
+  { text: 'New List', action: createNewList },
+  { text: 'Delete List', action: deleteCurrentList }
+];
+menuItems.forEach(({text, action}) => {
+  const item = document.createElement('div');
+  item.textContent = text;
+  item.style.padding = '4px 12px';
+  item.style.cursor = 'pointer';
+  item.onmouseenter = () => item.style.background = '#eee';
+  item.onmouseleave = () => item.style.background = '';
+  item.onclick = () => { menu.style.display = 'none'; action(); };
+  menu.appendChild(item);
+});
+
+
+function buildListItems() {
+  // remove old dynamic list entries
+  menu.querySelectorAll('.list-entry').forEach(el => el.remove());
+
+  allLists.forEach(lst => {
+    const item = document.createElement('div');
+    item.textContent = lst.name;
+    item.className = 'list-entry';
+    item.style.padding = '4px 12px';
+    item.style.cursor = 'pointer';
+    item.onmouseenter = () => item.style.background = '#eee';
+    item.onmouseleave = () => item.style.background = '';
+    item.onclick = () => {
+      hideMenu();
+      selectList(lst.name);
+    };
+    menu.appendChild(item);
+  });
+}
+function hideMenu() {
+  menu.style.display = 'none';
+  menuButton.setAttribute('aria-expanded', 'false');
+}
+
+listName.parentElement.insertBefore(menuButton, listName.nextSibling);
+document.body.appendChild(menu);
+
+
+menuButton.onclick = e => {
+  buildListItems();
+  const rect = menuButton.getBoundingClientRect();
+  menu.style.left = rect.left + 'px';
+  menu.style.top = rect.bottom + 'px';
+  menu.style.display = (menu.style.display === 'none') ? 'block' : 'none';
+};
+
+document.addEventListener('click', e => {
+  if (!menu.contains(e.target) && e.target !== menuButton)
+    menu.style.display = 'none';
+});
+
+
 // ------------------ Utility -------------------
 function scheduleSave() {
   if(!currentList) return;
@@ -259,7 +333,8 @@ function selectList(name, data) {
 // ------------------ Event Handlers -------------------
 listSelect.onchange = () => selectList(listSelect.value);
 
-document.getElementById('new-list').onclick = () => {
+//document.getElementById('new-list').onclick = () => {
+function createNewList() {
   const name = prompt('Enter new list name:');
   if(!name) return;
   const newList = {
@@ -280,7 +355,8 @@ document.getElementById('new-list').onclick = () => {
   scheduleSave();
 };
 
-document.getElementById('delete-list').onclick = () => {
+//document.getElementById('delete-list').onclick = () => {
+function deleteCurrentList() {
   if(!currentList) return;
   if(!confirm(`Delete list "${currentList.name}"?`)) return;
   fetch(`/shopping/api.cgi/${currentList.name}`, {method:'DELETE'}).catch(console.error);
