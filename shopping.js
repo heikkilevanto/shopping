@@ -3,6 +3,8 @@ let allLists = [];   // {name}
 let currentList = null;
 let saveTimeout;
 let focusItem = null;
+let isSaving = false;
+let isModified = false;
 
 // ================= Build page =================
 const body = document.body;
@@ -31,6 +33,13 @@ listName.style.fontSize = '1.5em';
 listName.style.fontWeight = 'bold';
 titleContainer.appendChild(listName);
 
+const listStatus = document.createElement('span');
+listStatus.style.marginLeft = '0.5em';
+listStatus.style.fontWeight = 'normal';
+listStatus.style.color = '#c00';  // red for modified
+titleContainer.appendChild(listStatus);
+
+
 // Menu dropdown
 const menu = document.createElement('div');
 menu.style.display = 'none';
@@ -49,21 +58,54 @@ container.style.marginTop = '0.5em';
 appContainer.appendChild(container);
 
 // ================= Utility =================
+
+function updateStatus() {
+  let statusChar = '';
+  if (isSaving) statusChar = ' S';
+  else if (isModified) statusChar = ' *';
+  listStatus.textContent = statusChar;
+  // Update tab title
+  if (currentList) {
+    document.title = currentList.name + statusChar;
+  }
+}
+
 function scheduleSave() {
   if(!currentList) return;
   clearTimeout(saveTimeout);
+  isModified = true;
+  updateStatus();
   saveTimeout = setTimeout(() => {
+    isSaving = true;
+    updateStatus();
     fetch(`/shopping/api.cgi/${currentList.name}`, {
       method: 'POST',
       body: JSON.stringify(currentList,null,2)+'\n',
       headers: {'Content-Type':'application/json'}
-    }).catch(console.error);
+    })
+    .then(() => {
+      isSaving = false;
+      isModified = false;
+      updateStatus();
+    })
+    .catch(console.error);
   },2000);
 }
 
 function hideMenu() {
   menu.style.display = 'none';
   menuButton.setAttribute('aria-expanded','false');
+}
+
+function getContrastColor(hex) {
+  // remove leading #
+  if (hex.startsWith('#')) hex = hex.slice(1);
+  const r = parseInt(hex.substr(0,2),16);
+  const g = parseInt(hex.substr(2,2),16);
+  const b = parseInt(hex.substr(4,2),16);
+  // relative luminance formula
+  const lum = 0.299*r + 0.587*g + 0.114*b;
+  return lum > 186 ? '#000000' : '#ffffff'; // light bg → black, dark bg → white
 }
 
 // ================= Menu actions =================
@@ -96,6 +138,10 @@ function deleteCurrentList() {
 // Build menu items dynamically
 function buildMenu() {
   menu.innerHTML='';
+  const bg = currentList?.bgColor || '#ffffff';
+  menu.style.background = bg;
+  menu.style.color = getContrastColor(bg);
+
   // New
   const newItem=document.createElement('div');
   newItem.textContent='New List';
@@ -111,6 +157,27 @@ function buildMenu() {
   delItem.style.cursor='pointer';
   delItem.onclick=()=>{ hideMenu(); deleteCurrentList(); };
   menu.appendChild(delItem);
+
+  // Color picker
+  const colorItem = document.createElement('div');
+  colorItem.style.padding = '4px 12px';
+  colorItem.style.cursor = 'default';
+  const colorLabel = document.createElement('label');
+  colorLabel.textContent = 'Background: ';
+  const colorInput = document.createElement('input');
+  colorInput.type = 'color';
+  colorInput.value = currentList?.bgColor || '#ffffff'; // default white
+  colorInput.oninput = () => {
+    if (!currentList) return;
+    currentList.bgColor = colorInput.value;
+    document.body.style.backgroundColor = currentList.bgColor || '#ffffff' ;
+    document.body.style.color = getContrastColor(currentList.bgColor || '#ffffff');
+    scheduleSave();
+    hideMenu();
+  };
+  colorLabel.appendChild(colorInput);
+  colorItem.appendChild(colorLabel);
+  menu.appendChild(colorItem);
 
   // separator
   const sep=document.createElement('div');
@@ -269,6 +336,8 @@ function renderItems(container,items,parentItems){
 
 // Main render
 function render(){
+  document.body.style.backgroundColor = currentList.bgColor || '#ffffff';
+  document.body.style.color = getContrastColor(currentList.bgColor || '#ffffff');
   if(!currentList){
     listName.textContent='No List Selected';
     container.innerHTML='';
