@@ -124,19 +124,42 @@ function getContrastColor(hex) {
 function buildSectionMenu(section, menu) {
   menu.innerHTML = '';
 
-  const expand = document.createElement('div');
-  expand.textContent = 'Expand';
-  expand.style.padding = '4px 12px';
-  expand.style.cursor = 'pointer';
-  expand.onclick = () => { section.collapsed = false; render(); scheduleSave(); hideSectionMenu(menu); };
-  menu.appendChild(expand);
+  if ( section.collapsed ) {
+    const expand = document.createElement('div');
+    expand.textContent = 'Expand';
+    expand.style.padding = '4px 12px';
+    expand.style.cursor = 'pointer';
+    expand.onclick = () => { section.collapsed = false; render(); scheduleSave(); hideSectionMenu(menu); };
+    menu.appendChild(expand);
+  } else {
+    const collapse = document.createElement('div');
+    collapse.textContent = 'Collapse';
+    collapse.style.padding = '4px 12px';
+    collapse.style.cursor = 'pointer';
+    collapse.onclick = () => { section.collapsed = true; render(); scheduleSave(); hideSectionMenu(menu); };
+    menu.appendChild(collapse);
+  }
 
-  const collapse = document.createElement('div');
-  collapse.textContent = 'Collapse';
-  collapse.style.padding = '4px 12px';
-  collapse.style.cursor = 'pointer';
-  collapse.onclick = () => { section.collapsed = true; render(); scheduleSave(); hideSectionMenu(menu); };
-  menu.appendChild(collapse);
+  const filterDiv = document.createElement('div');
+  filterDiv.style.padding = '4px 12px';
+  filterDiv.textContent = 'Show: ';
+  ['all','checked','unchecked'].forEach(f => {
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.textContent = f[0].toUpperCase() + f.slice(1);
+    btn.style.marginRight = '4px';
+    if (section.filter === f || (!section.filter && f === 'all')) {
+      btn.style.fontWeight = 'bold';
+      btn.style.textDecoration = 'underline';
+    }
+    btn.onclick = () => {
+      section.filter = f;
+      render();
+      hideSectionMenu();
+    };
+    filterDiv.appendChild(btn);
+  });
+  menu.appendChild(filterDiv);
 
   // Color picker
   const colorDiv = document.createElement('div');
@@ -151,6 +174,7 @@ function buildSectionMenu(section, menu) {
   colorLabel.appendChild(colorInput);
   colorDiv.appendChild(colorLabel);
   menu.appendChild(colorDiv);
+
   menu.style.background = bg;
   menu.style.color = getContrastColor(bg);
 }
@@ -304,13 +328,13 @@ function renderItem(container,item,parentItems){
   span.onkeydown=e=>{
     if(e.key==='Enter'){
       e.preventDefault();
-      let text=span.textContent.trim();
+      let text = span.textContent.replace(/\r?\n/g, ' ').trim();
       if(text===''){ span.blur(); return; }
-      if(text.startsWith('o ')){
+      if(text.startsWith('o ') ||text.startsWith('☐') ){
         item.type='item';
         item.checked=false;
         text=text.slice(2).trim();
-      } else if(text.startsWith('x ')){
+      } else if(text.startsWith('x ')||text.startsWith('☑ ') ){
         item.type='item';
         item.checked=true;
         text=text.slice(2).trim();
@@ -417,16 +441,22 @@ function renderSection(container,section,parentSections){
   body.style.display=section.collapsed?'none':'block';
   sec.appendChild(body);
   container.appendChild(sec);
-  renderItems(body,section.items,section.items);
+  renderItems(body,section.items,section.items, section);
   if(section.title.trim()==='' && focusItem===null) focusItem=section;
 }
 
 // Render items recursively
-function renderItems(container,items,parentItems){
+function renderItems(container,items,parentItems, section){
   container.innerHTML='';
   items.forEach(item=>{
-    if(item.type==='section') renderSection(container,item,parentItems);
-    else renderItem(container,item,parentItems);
+    if(item.type==='section') renderSection(container,item,parentItems, item.items);
+    else {
+      if (section?.filter) {
+        if (section.filter === 'checked' && !item.checked) return;
+        if (section.filter === 'unchecked' && item.checked) return;
+      }
+      renderItem(container,item,parentItems);
+    }
   });
 }
 
