@@ -51,6 +51,18 @@ menu.style.boxShadow = '0 2px 6px rgba(0,0,0,0.15)';
 menu.style.zIndex = '1000';
 body.appendChild(menu);
 
+// Section menu (sharedc)
+const secMenu = document.createElement('div');
+secMenu.style.display = 'none';
+secMenu.style.position = 'absolute';
+secMenu.style.background = currentList?.bgColor || '#fff';
+secMenu.style.color = getContrastColor(currentList?.bgColor || '#fff');
+secMenu.style.border = '1px solid #ccc';
+secMenu.style.padding = '4px 0';
+secMenu.style.boxShadow = '0 2px 6px rgba(0,0,0,0.15)';
+secMenu.style.zIndex = '1000';
+document.body.appendChild(secMenu);
+
 // Container for list items
 const container = document.createElement('div');
 container.id = 'list-container';
@@ -108,7 +120,47 @@ function getContrastColor(hex) {
   return lum > 186 ? '#000000' : '#ffffff'; // light bg → black, dark bg → white
 }
 
+// ============== Section menu ==================
+function buildSectionMenu(section, menu) {
+  menu.innerHTML = '';
+
+  const expand = document.createElement('div');
+  expand.textContent = 'Expand';
+  expand.style.padding = '4px 12px';
+  expand.style.cursor = 'pointer';
+  expand.onclick = () => { section.collapsed = false; render(); scheduleSave(); hideSectionMenu(menu); };
+  menu.appendChild(expand);
+
+  const collapse = document.createElement('div');
+  collapse.textContent = 'Collapse';
+  collapse.style.padding = '4px 12px';
+  collapse.style.cursor = 'pointer';
+  collapse.onclick = () => { section.collapsed = true; render(); scheduleSave(); hideSectionMenu(menu); };
+  menu.appendChild(collapse);
+
+  // Color picker
+  const colorDiv = document.createElement('div');
+  colorDiv.style.padding = '4px 12px';
+  const colorLabel = document.createElement('label');
+  colorLabel.textContent = 'Color: ';
+  const colorInput = document.createElement('input');
+  const bg = section.bgColor ||currentList?.bgColor ||  '#ffffff';
+  colorInput.type = 'color';
+  colorInput.value = bg;
+  colorInput.oninput = () => { section.bgColor = colorInput.value; render(); scheduleSave(); };
+  colorLabel.appendChild(colorInput);
+  colorDiv.appendChild(colorLabel);
+  menu.appendChild(colorDiv);
+  menu.style.background = bg;
+  menu.style.color = getContrastColor(bg);
+}
+
+function hideSectionMenu() {
+  secMenu.style.display = 'none';
+}
+
 // ================= Menu actions =================
+
 function createNewList() {
   const name = prompt('Enter new list name:');
   if(!name) return;
@@ -208,7 +260,10 @@ menuButton.onclick=e=>{
     menuButton.setAttribute('aria-expanded','true');
   } else hideMenu();
 };
-document.addEventListener('click',e=>{ if(!menu.contains(e.target)&&e.target!==menuButton) hideMenu(); });
+document.addEventListener('click',e=>{
+  if(!menu.contains(e.target) && e.target !== menuButton) hideMenu();
+  if (!secMenu.contains(e.target)) hideSectionMenu();
+});
 document.addEventListener('keydown',e=>{ if(e.key==='Escape') hideMenu(); });
 
 // ================= List selection =================
@@ -284,12 +339,32 @@ function renderItem(container,item,parentItems){
 function renderSection(container,section,parentSections){
   const sec=document.createElement('div');
   sec.className='section';
+  sec.style.backgroundColor = section.bgColor || '';
+  sec.style.padding = '0.3em';   // optional padding
+  sec.style.borderRadius = '4px'; // optional rounding for nicer look
+
   const header=document.createElement('div');
   header.className='section-header';
-  const toggle=document.createElement('span');
-  toggle.textContent=section.collapsed?'[+]':'[-]';
-  toggle.onclick=()=>{ section.collapsed=!section.collapsed; render(); scheduleSave(); };
-  header.appendChild(toggle);
+  const toggleBtn = document.createElement('button');
+  toggleBtn.textContent = section.collapsed ? '[+]' : '[-]';
+  toggleBtn.style.marginRight = '0.5em';
+  toggleBtn.type = 'button';
+
+  toggleBtn.onclick = e => {
+    e.stopPropagation();
+    buildSectionMenu(section, secMenu);
+    const rect = toggleBtn.getBoundingClientRect();
+    secMenu.style.left = rect.left + 'px';
+    secMenu.style.top = rect.bottom + window.scrollY + 4 + 'px';
+    secMenu.style.display = 'block';
+  };
+
+  document.addEventListener('click', e => {  // hide menu
+    if (!secMenu.contains(e.target) && e.target !== toggleBtn) secMenu.style.display = 'none';
+  });
+
+  header.appendChild(toggleBtn);
+
   const title=document.createElement('span');
   title.className='title';
   title.textContent=section.title;
