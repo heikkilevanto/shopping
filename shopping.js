@@ -447,11 +447,22 @@ function renderSection(container,section,parentSections){
 
   toggleBtn.onclick = e => {
     e.stopPropagation();
-    buildSectionMenu(section, secMenu);
-    const rect = toggleBtn.getBoundingClientRect();
-    secMenu.style.left = rect.left + 'px';
-    secMenu.style.top = rect.bottom + window.scrollY + 4 + 'px';
-    secMenu.style.display = 'block';
+    if (secMenu.style.display === 'block' || e.detail === 2) {
+      section.collapsed = !section.collapsed;
+
+      // set focusItem to the section title before render
+      focusItem = section;
+
+      render();
+      scheduleSave();
+      hideSectionMenu();
+    } else {
+      buildSectionMenu(section, secMenu);
+      const rect = toggleBtn.getBoundingClientRect();
+      secMenu.style.left = rect.left + 'px';
+      secMenu.style.top = rect.bottom + window.scrollY + 4 + 'px';
+      secMenu.style.display = 'block';
+    }
   };
 
   document.addEventListener('click', e => {  // hide menu
