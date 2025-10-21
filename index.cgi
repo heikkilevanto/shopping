@@ -1,3 +1,9 @@
+#!/usr/bin/perl
+use File::stat;
+
+print <<'END';
+
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -24,6 +30,17 @@
 </style>
 </head>
 <body>
-<script src="shopping.js?x=3"></script>
-</body>
-</html>
+END
+
+sub scriptlink {
+  my $f = shift;
+  if ( !-r $f ) {
+    print "Can not stat $f <br/>\n";
+    return;
+  }
+  my $v = stat($f)->mtime;
+  print "<script type='module' src='$f?v=$v'></script>\n";
+}
+
+#scriptlink("drag.js");
+scriptlink("shopping.js");
