@@ -378,7 +378,7 @@ function focusEditable(el){
 }
 
 // Render item
-function renderItem(container,item,parentItems){
+function renderItem(container,item,parentItems,parentSection){
   const line=document.createElement('div');
   line.className='line';
   line._item = item;
@@ -387,7 +387,12 @@ function renderItem(container,item,parentItems){
     const cb=document.createElement('input');
     cb.type='checkbox';
     cb.checked=item.checked;
-    cb.onchange=()=>{ item.checked=cb.checked; scheduleSave(); };
+    cb.onchange=()=>{
+      item.checked=cb.checked;
+      focusItem = parentSection;
+      render(); // so the filters take effect
+      scheduleSave();
+    };
     line.appendChild(cb);
 
     // Register the checkbox as the drag handle for items (drag.js should start only when dragging from this checkbox)
@@ -553,7 +558,7 @@ function renderSection(container,section,parentSections,parentEffectiveFilter){
   sec.appendChild(body);
   container.appendChild(sec);
   const childFilter = section.filter && section.filter !== '' ? section.filter : parentEffectiveFilter;
-  renderItems(body, section.items, section.items, childFilter);
+  renderItems(body, section.items, section.items, childFilter, section);
 
   // Register section header for drop behavior and mark header with references for drag module
   // attach references for drag computations
@@ -572,7 +577,7 @@ function renderSection(container,section,parentSections,parentEffectiveFilter){
 }
 
 // Render items recursively
-function renderItems(container, items, parentItems, effectiveFilter = 'all') {
+function renderItems(container, items, parentItems, effectiveFilter = 'all', parentSection) {
   container.innerHTML = '';
   items.forEach(item => {
     if (item.type === 'section') {
@@ -597,15 +602,19 @@ function render(){
     return;
   }
   renderItems(container,currentList.items,currentList.items, 'all');
-
-  if(focusItem){
-    const lines=container.querySelectorAll('.line-text');
-    const titles=container.querySelectorAll('.section-header .title');
-    let focused=false;
-    for(const l of lines){ if(l._item===focusItem){ focusEditable(l); focused=true; break; } }
-    if(!focused) for(const t of titles){ if(t._section===focusItem){ focusEditable(t); break; } }
-    focusItem=null;
+  if (focusItem) {
+    const lines = container.querySelectorAll('.line-text');
+    const titles = container.querySelectorAll('.section-header .title');
+    let focused = false;
+    for (const l of lines) {
+      if (l._item === focusItem) { focusEditable(l); focused = true; break; }
+    }
+    if (!focused) for (const t of titles) {
+      if (t._section === focusItem) { focusEditable(t); break; }
+    }
+    focusItem = null;
   }
+
 }
 
 
