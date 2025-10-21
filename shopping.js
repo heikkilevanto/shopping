@@ -357,6 +357,11 @@ function renderItem(container,item,parentItems){
     cb.checked=item.checked;
     cb.onchange=()=>{ item.checked=cb.checked; scheduleSave(); };
     line.appendChild(cb);
+
+    // Register the checkbox as the drag handle for items (drag.js should start only when dragging from this checkbox)
+    if (typeof drag !== 'undefined' && drag.registerDragHandle) {
+      drag.registerDragHandle(cb, { type: 'item', itemOrSection: item, parentArray: parentItems, domNode: line });
+    }
   }
   const span=document.createElement('span');
   span.className='line-text';
@@ -416,6 +421,11 @@ function renderItem(container,item,parentItems){
     scheduleSave();
   };
   line.appendChild(span);
+
+  // Register per-line hover and pointer handlers for showing inline drop line and accepting drops
+  if (typeof drag !== 'undefined' && drag.registerLine) {
+    drag.registerLine(line);
+  }
 
   container.appendChild(line);
 }
@@ -483,6 +493,19 @@ function renderSection(container,section,parentSections){
   container.appendChild(sec);
   renderItems(body,section.items,section.items, section);
 
+  // Register section header for drop behavior and mark header with references for drag module
+  // attach references for drag computations
+  header._section = section;
+  header._parentSections = parentSections;
+  if (typeof drag !== 'undefined' && drag.registerSectionHeader) {
+    drag.registerSectionHeader(header);
+  }
+
+  // Register toggle button as the section drag handle
+  if (typeof drag !== 'undefined' && drag.registerDragHandle) {
+    drag.registerDragHandle(toggleBtn, { type: 'section', itemOrSection: section, parentArray: parentSections, domNode: sec });
+  }
+
   if(section.title.trim()==='' && focusItem===null) focusItem=section;
 }
 
@@ -524,7 +547,15 @@ function render(){
 
 
 // ================= Init =================
-//
+// Initialize drag module (if available). Place after render definition but before first fetch/selectList call.
+if (typeof drag !== 'undefined' && drag.init) {
+  drag.init({
+    container,
+    render,
+    scheduleSave,
+    getRootItems: () => currentList ? currentList.items : []
+  });
+}
 
 fetch('/shopping/api.cgi/')
   .then(r=>r.json())

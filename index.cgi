@@ -42,5 +42,5 @@ sub scriptlink {
   print "<script type='module' src='$f?v=$v'></script>\n";
 }
 
-#scriptlink("drag.js");
+scriptlink("drag.js");
 scriptlink("shopping.js");
