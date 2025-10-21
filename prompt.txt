@@ -1,0 +1,72 @@
+Prompts
+
+
+
+Summary of design criteria for drag-reorder:
+
+Purpose:
+Allow reordering of items and sections (possibly nested) by drag-and-drop with mouse or touch.
+
+Scope:
+
+    Items and sections are represented in the same data structure ({type:"item"|"section", …}) and appear nested.
+
+    The reorder must update that array structure and trigger scheduleSave().
+
+When drag starts:
+
+    For items: only when dragging from the checkbox.
+
+    For sections: only when dragging from the menu/toggle button.
+
+    On touch devices: requires a long-press before drag starts.
+
+    Normal clicks on these controls still perform their usual actions.
+
+During drag:
+
+    Show a ghost copy of the dragged element following pointer/finger.
+
+    Show horizontal drop markers between existing elements and at section tops.
+
+    Drop markers should appear even when dragging within the same section.
+
+    Sections can accept drops both between siblings and into their own body (beginning of section).
+
+    Collapsed sections can still be dropped into.
+
+On drop:
+
+    The dragged item/section is removed from its old array and inserted into the new location.
+
+    render() and scheduleSave() are called.
+
+    Ghost and markers disappear.
+
+General behavior:
+
+    Works recursively (supports nested sections).
+
+    Reuses the same code for mouse and touch events.
+
+    Auto-scrolls near top or bottom during drag if feasible.
+
+    Keeps design procedural, no classes.
+
+    Visuals minimal: one horizontal line for drop position, faint opacity on dragged ghost.
+
+Design wishes:
+
+        Minimal use of global or document level handlers
+
+        Each .line and .section-header should:
+
+            on mouseenter: show a thin drop line below itself,
+
+            on mouseleave: hide that line,
+
+            on mouseup or touchend: call dropHere(dragItem, dragParent, this) to perform the move.
+
+        Collapsed sections still accept drops at their top (insert index 0).
+
+        Make minimal changes to shopping.js, keep all drag-related code in a new module, drag.js
