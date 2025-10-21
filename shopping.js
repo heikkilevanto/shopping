@@ -130,21 +130,33 @@ function buildSectionMenu(section, menu) {
     expand.textContent = 'Expand';
     expand.style.padding = '4px 12px';
     expand.style.cursor = 'pointer';
-    expand.onclick = () => { section.collapsed = false; render(); scheduleSave(); hideSectionMenu(menu); };
+    expand.onclick = () => {
+      section.collapsed = false;
+      focusItem = section;
+      render();
+      scheduleSave();
+      hideSectionMenu(menu);
+    };
     menu.appendChild(expand);
   } else {
     const collapse = document.createElement('div');
     collapse.textContent = 'Collapse';
     collapse.style.padding = '4px 12px';
     collapse.style.cursor = 'pointer';
-    collapse.onclick = () => { section.collapsed = true; render(); scheduleSave(); hideSectionMenu(menu); };
+    collapse.onclick = () => {
+      section.collapsed = true;
+      focusItem = section;
+      render();
+      scheduleSave();
+      hideSectionMenu(menu);
+    };
     menu.appendChild(collapse);
   }
 
   const filterDiv = document.createElement('div');
   filterDiv.style.padding = '4px 12px';
   filterDiv.textContent = 'Show: ';
-  ['all','checked','unchecked'].forEach(f => {
+  ['all','checked','unchecked','none'].forEach(f => {
     const btn = document.createElement('button');
     btn.type = 'button';
     btn.textContent = f[0].toUpperCase() + f.slice(1);
@@ -154,8 +166,10 @@ function buildSectionMenu(section, menu) {
       btn.style.textDecoration = 'underline';
     }
     btn.onclick = () => {
-      section.filter = f;
+      section.filter = section.filter = f === 'none' ? '' : f; // none = ''
+      focusItem = section;
       render();
+      scheduleSave();
       hideSectionMenu();
     };
     filterDiv.appendChild(btn);
@@ -336,6 +350,24 @@ function selectList(name,data){
 }
 
 // ================= Render =================
+function resolveFilter(section, parentSections) {
+  let sec = section;
+  let filter = sec?.filter || '';
+  let parents = parentSections || [];
+  let idx = parents.indexOf(sec);
+  while (filter === '' && idx > -1) {
+    // move up to parent section if exists
+    sec = parents[idx]._parentSection;
+    if (!sec) break;
+    filter = sec.filter || '';
+    parents = sec._parentSections || [];
+    idx = parents.indexOf(sec);
+  }
+  return filter || 'all';  // default to all if still empty
+}
+
+
+
 function focusEditable(el){
   el.focus();
   const sel=window.getSelection();
@@ -390,7 +422,8 @@ function renderItem(container,item,parentItems){
           type: 'section',
           title: text.slice(2).trim(),
           collapsed: false,
-          items: [{ type: 'item', text: '', checked: false }]
+          items: [{ type: 'item', text: '', checked: false }],
+          filter: ''
         };
         parentItems.splice(idx, 1, newSection);
         focusItem = newSection.items[0];
@@ -431,7 +464,7 @@ function renderItem(container,item,parentItems){
 }
 
 // Render section
-function renderSection(container,section,parentSections){
+function renderSection(container,section,parentSections,parentEffectiveFilter){
   const sec=document.createElement('div');
   sec.className='section';
   sec.style.backgroundColor = section.bgColor || '';
@@ -519,7 +552,8 @@ function renderSection(container,section,parentSections){
   body.style.display=section.collapsed?'none':'block';
   sec.appendChild(body);
   container.appendChild(sec);
-  renderItems(body,section.items,section.items, section);
+  const childFilter = section.filter && section.filter !== '' ? section.filter : parentEffectiveFilter;
+  renderItems(body, section.items, section.items, childFilter);
 
   // Register section header for drop behavior and mark header with references for drag module
   // attach references for drag computations
@@ -538,16 +572,17 @@ function renderSection(container,section,parentSections){
 }
 
 // Render items recursively
-function renderItems(container,items,parentItems, section){
-  container.innerHTML='';
-  items.forEach(item=>{
-    if(item.type==='section') renderSection(container,item,parentItems, item.items);
-    else {
-      if (section?.filter) {
-        if (section.filter === 'checked' && !item.checked) return;
-        if (section.filter === 'unchecked' && item.checked) return;
-      }
-      renderItem(container,item,parentItems);
+function renderItems(container, items, parentItems, effectiveFilter = 'all') {
+  container.innerHTML = '';
+  items.forEach(item => {
+    if (item.type === 'section') {
+      // compute section’s filter: use own filter if set, otherwise inherit
+      const secFilter = item.filter && item.filter !== '' ? item.filter : effectiveFilter;
+      renderSection(container, item, parentItems, secFilter);
+    } else {
+      if (effectiveFilter === 'checked' && !item.checked) return;
+      if (effectiveFilter === 'unchecked' && item.checked) return;
+      renderItem(container, item, parentItems);
     }
   });
 }
@@ -561,7 +596,7 @@ function render(){
     container.innerHTML='';
     return;
   }
-  renderItems(container,currentList.items,currentList.items);
+  renderItems(container,currentList.items,currentList.items, 'all');
 
   if(focusItem){
     const lines=container.querySelectorAll('.line-text');
