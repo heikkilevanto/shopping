@@ -465,19 +465,36 @@ function renderSection(container,section,parentSections){
   title.textContent=section.title;
   title.contentEditable=true;
   title._section=section;
-  title.onkeydown=e=>{
-    if(e.key!=='Enter') return;
+  title.onkeydown = e => {
+    if (e.key !== 'Enter') return;
     e.preventDefault();
-    const t=title.textContent.trim();
-    section.title=t;
+    const t = title.textContent.trim();
+    section.title = t;
     scheduleSave();
-    const idx=parentSections.indexOf(section);
-    if(idx===parentSections.length-1 && t!==''){
-      parentSections.push({type:'section',title:'',collapsed:false,items:[{type:'item',text:'',checked:false}]});
+
+    // ensure at least one item exists and first is not a section
+    if (section.items.length === 0 || section.items[0].type === 'section') {
+      const newItem = { type: 'item', text: '', checked: false };
+      section.items.unshift(newItem);
+      focusItem = newItem;
+    } else {
+      focusItem = section.items[0];
     }
-    if(section.items.length) focusItem=section.items[0];
+
+    // add new section below if this is last
+    const idx = parentSections.indexOf(section);
+    if (idx === parentSections.length - 1 && t !== '') {
+      parentSections.push({
+        type: 'section',
+        title: '',
+        collapsed: false,
+        items: [{ type: 'item', text: '', checked: false }]
+      });
+    }
+
     render();
   };
+
   title.onblur = () => {
     const t = title.textContent.trim();
     if (section.title !== t) {
