@@ -43,6 +43,13 @@
     return el;
   }
 
+  // Disable drag debug output. Re-enable in the console with window.DRAG_DEBUG = true
+  // and refresh.
+  if (!window.__DRAG_DEBUG__) {
+    // Silences all console.debug calls from this point on.
+    console.debug = () => {};
+  }
+
   // lightweight describers for debug
   function describeNode(obj) {
     if (!obj) return '<null>';
