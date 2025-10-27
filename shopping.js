@@ -250,7 +250,7 @@ function collapseAll() {
 function clearAllFilters() {
   if (!currentList) return;
   currentList.filter = "",
-  traverseSections(currentList.items, sec => sec.filter = 'all');
+  traverseSections(currentList.items, sec => sec.filter = '');
   render();
 }
 
