@@ -27,7 +27,6 @@ menuButton.type = 'button';
 menuButton.style.padding = '0.15em 0.5em';
 titleContainer.appendChild(menuButton);
 
-
 const listName = document.createElement('span');
 listName.id = 'list-name';
 listName.style.fontSize = '1.5em';
@@ -52,7 +51,7 @@ menu.style.boxShadow = '0 2px 6px rgba(0,0,0,0.15)';
 menu.style.zIndex = '1000';
 body.appendChild(menu);
 
-// Section menu (sharedc)
+// Section menu (shared)
 const secMenu = document.createElement('div');
 secMenu.style.display = 'none';
 secMenu.style.position = 'absolute';
@@ -250,6 +249,7 @@ function collapseAll() {
 
 function clearAllFilters() {
   if (!currentList) return;
+  currentList.filter = "",
   traverseSections(currentList.items, sec => sec.filter = 'all');
   render();
 }
@@ -284,6 +284,28 @@ function buildMenu() {
   addMenuItem(menu, 'Collapse All', collapseAll);
   addMenuItem(menu, 'Clear All Filters', clearAllFilters);
 
+  // Global filter
+  const gfDiv = document.createElement('div');
+  gfDiv.style.padding = '4px 12px';
+  gfDiv.textContent = 'Show: ';
+  ['checked','unchecked','none'].forEach(f=>{
+    const btn=document.createElement('button');
+    btn.type='button';
+    btn.textContent=f[0].toUpperCase()+f.slice(1);
+    btn.style.marginRight='4px';
+    if((currentList.filter||'all')===f){
+      btn.style.fontWeight='bold';
+      btn.style.textDecoration='underline';
+    }
+    btn.onclick=()=>{
+      currentList.filter = f==='none' ? '' : f;
+      render();
+      scheduleSave();
+      hideMenu();
+    };
+    gfDiv.appendChild(btn);
+  });
+  menu.appendChild(gfDiv);
 
   // Color picker
   const colorItem = document.createElement('div');
@@ -363,7 +385,8 @@ function resolveFilter(section, parentSections) {
     parents = sec._parentSections || [];
     idx = parents.indexOf(sec);
   }
-  return filter || 'all';  // default to all if still empty
+  return filter || currentList?.filter || 'all';
+
 }
 
 
@@ -601,7 +624,7 @@ function render(){
     container.innerHTML='';
     return;
   }
-  renderItems(container,currentList.items,currentList.items, 'all');
+  renderItems(container,currentList.items,currentList.items, currentList.filter || 'all');
   if (focusItem) {
     const lines = container.querySelectorAll('.line-text');
     const titles = container.querySelectorAll('.section-header .title');

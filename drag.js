@@ -1,15 +1,4 @@
-/* drag.js
-   Drag-reorder module (desktop-only / touch removed)
-
-   Changes in this version:
-   - Removed all touch-specific handling (long-press, touchmove preventers, overscroll/scroll nudges).
-   - Pointer events still used, but pointerdown with pointerType === 'touch' is ignored (no touch drag).
-   - Simplified drag lifecycle: mouse/pen start drag after move threshold; no long-press timers.
-   - Removed all scroll-trickery and related helpers.
-   - Kept ghost element, single drop marker, auto-scroll near container edges (for mouse), click suppression to avoid clicks firing after a drag.
-   - Preserved safeguards: don't start dragging expanded sections, don't insert a section into its own items array, ignore no-op same-array drops.
-   - Retained debug logging to help future troubleshooting; you can remove console.debug calls if you want quieter output.
-*/
+/* Drag-drop handling */
 
 (function () {
   // Module-level state
