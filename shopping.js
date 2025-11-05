@@ -1,3 +1,7 @@
+// Shopping.js - the shopping list web app
+// Handles the logic and display, uses a simpel REST-like
+// back end for storage
+
 // ================= Data =================
 let allLists = [];   // {name}
 let currentList = null;
@@ -36,7 +40,7 @@ titleContainer.appendChild(listName);
 const listStatus = document.createElement('span');
 listStatus.style.marginLeft = '0.5em';
 listStatus.style.fontWeight = 'normal';
-listStatus.style.color = '#c00';  // red for modified
+//listStatus.style.color = '#c00';  // red for modified
 titleContainer.appendChild(listStatus);
 
 
@@ -152,6 +156,23 @@ function buildSectionMenu(section, menu) {
     menu.appendChild(collapse);
   }
 
+  const uncheckDiv = document.createElement('div');
+  uncheckDiv.textContent = 'Uncheck All';
+  uncheckDiv.style.padding = '4px 12px';
+  uncheckDiv.style.cursor = 'pointer';
+  uncheckDiv.onclick = () => {
+    traverseSections(section.items, null, it => {
+      if (it.type === 'item') {
+        it.checked = false;
+        console.log("Unchecked ", it);
+      }
+    });
+    render();
+    scheduleSave();
+    hideSectionMenu();
+  };
+  menu.appendChild(uncheckDiv);
+
   const filterDiv = document.createElement('div');
   filterDiv.style.padding = '4px 12px';
   filterDiv.textContent = 'Show: ';
@@ -224,11 +245,16 @@ function deleteCurrentList() {
   currentList = null;
   render();
 }
-function traverseSections(items, fn) {
+
+// Helper to recurse through a section, and do something for each
+// section we meet and/or each item we meet.
+function traverseSections(items, secFn, itFn = null) {
   items.forEach(item => {
     if (item.type === 'section') {
-      fn(item);
-      traverseSections(item.items, fn); // recurse into subsections
+      if (secFn) secFn(item);
+      traverseSections(item.items, secFn, itFn); // recurse into subsections
+    } else if ( item.type  = 'item' ) {
+      if (itFn) itFn(item);
     }
   });
 }
@@ -247,11 +273,24 @@ function collapseAll() {
   scheduleSave();
 }
 
+function uncheckAll() {
+  if (!currentList) return;
+  traverseSections(currentList.items, null, it => {
+    if (it.type === 'item') {
+      it.checked = false;
+    }
+  });
+  render();
+  scheduleSave();
+  hideSectionMenu();
+};
+
 function clearAllFilters() {
   if (!currentList) return;
   currentList.filter = "",
   traverseSections(currentList.items, sec => sec.filter = '');
   render();
+  scheduleSave();
 }
 
 function addMenuItem(menu, text, onClick) {
@@ -279,6 +318,8 @@ function buildMenu() {
   sep.style.borderTop='1px solid #ccc';
   sep.style.margin='4px 0';
   menu.appendChild(sep);
+
+  addMenuItem(menu, 'Uncheck All', uncheckAll);
 
   addMenuItem(menu, 'Expand All', expandAll);
   addMenuItem(menu, 'Collapse All', collapseAll);
