@@ -108,9 +108,10 @@ function scheduleSave() {
   },2000); // 2 seconds
 }
 
-function hideMenu() {
+function hideMenus() {  // Hide both section and global menus
   menu.style.display = 'none';
   menuButton.setAttribute('aria-expanded','false');
+  secMenu.style.display = 'none';
 }
 
 function getContrastColor(hex) {
@@ -124,51 +125,43 @@ function getContrastColor(hex) {
   return lum > 186 ? '#000000' : '#ffffff'; // light bg → black, dark bg → white
 }
 
+function addMenuItem(menu, text, onClick) {
+  const div = document.createElement('div');
+  div.textContent = text;
+  div.style.padding = '4px 12px';
+  div.style.cursor = 'pointer';
+  div.onmouseover = () => div.style.background = '#eee';
+  div.onmouseout = () => div.style.background = '';
+  div.onclick = () => { onClick(); hideMenus(); };
+  menu.appendChild(div);
+}
+
 // ============== Section menu ==================
+
+
+
 function buildSectionMenu(section, menu) {
   menu.innerHTML = '';
 
   if ( section.collapsed ) {
-    const expand = document.createElement('div');
-    expand.textContent = 'Expand';
-    expand.style.padding = '4px 12px';
-    expand.style.cursor = 'pointer';
-    expand.onclick = () => {
+    addMenuItem(menu,"Expand", () => {
       section.collapsed = false;
       focusItem = section;
       render();
       scheduleSave();
-      hideSectionMenu(menu);
-    };
-    menu.appendChild(expand);
+    });
   } else {
-    const collapse = document.createElement('div');
-    collapse.textContent = 'Collapse';
-    collapse.style.padding = '4px 12px';
-    collapse.style.cursor = 'pointer';
-    collapse.onclick = () => {
-      section.collapsed = true;
+    addMenuItem(menu,"Collapse", () => {
+      section.collapsed = false;
       focusItem = section;
       render();
       scheduleSave();
-      hideSectionMenu(menu);
-    };
-    menu.appendChild(collapse);
+    });
   }
 
-  const uncheckDiv = document.createElement('div');
-  uncheckDiv.textContent = 'Uncheck All';
-  uncheckDiv.style.padding = '4px 12px';
-  uncheckDiv.style.cursor = 'pointer';
-  uncheckDiv.onclick = () => {
-    traverseSections(section.items, null, it => {
-      if (it.type === 'item') {
-        it.checked = false;
-      }
-    });
-    hideSectionMenu();
-  };
-  menu.appendChild(uncheckDiv);
+  addMenuItem(menu,"Uncheck All", () => {
+    traverseSections(section.items, null, it => {it.checked = false;}
+  });
 
   const filterDiv = document.createElement('div');
   filterDiv.style.padding = '4px 12px';
@@ -187,7 +180,7 @@ function buildSectionMenu(section, menu) {
       focusItem = section;
       render();
       scheduleSave();
-      hideSectionMenu();
+      hideMenus();
     };
     filterDiv.appendChild(btn);
   });
@@ -211,9 +204,6 @@ function buildSectionMenu(section, menu) {
   menu.style.color = getContrastColor(bg);
 }
 
-function hideSectionMenu() {
-  secMenu.style.display = 'none';
-}
 
 // ================= Menu actions =================
 
@@ -280,7 +270,7 @@ function uncheckAll() {
       it.checked = false;
     }
   });
-  hideSectionMenu();
+  hideMenus();
 };
 
 function clearAllFilters() {
@@ -288,16 +278,6 @@ function clearAllFilters() {
   traverseSections(currentList.items, sec => sec.filter = '');
 }
 
-function addMenuItem(menu, text, onClick) {
-  const div = document.createElement('div');
-  div.textContent = text;
-  div.style.padding = '4px 12px';
-  div.style.cursor = 'pointer';
-  div.onmouseover = () => div.style.background = '#eee';
-  div.onmouseout = () => div.style.background = '';
-  div.onclick = () => { onClick(); hideMenu(); };
-  menu.appendChild(div);
-}
 
 // Build menu items dynamically
 function buildMenu() {
@@ -337,7 +317,7 @@ function buildMenu() {
       currentList.filter = f==='none' ? '' : f;
       render();
       scheduleSave();
-      hideMenu();
+      hideMenus();
     };
     gfDiv.appendChild(btn);
   });
@@ -357,7 +337,7 @@ function buildMenu() {
     document.body.style.backgroundColor = currentList.bgColor || '#ffffff' ;
     document.body.style.color = getContrastColor(currentList.bgColor || '#ffffff');
     scheduleSave();
-    hideMenu();
+    hideMenus();
   };
   colorLabel.appendChild(colorInput);
   colorItem.appendChild(colorLabel);
@@ -375,7 +355,7 @@ function buildMenu() {
     li.textContent=lst.name;
     li.style.padding='4px 12px';
     li.style.cursor='pointer';
-    li.onclick=()=>{ hideMenu(); selectList(lst.name); };
+    li.onclick=()=>{ hideMenus(); selectList(lst.name); };
     menu.appendChild(li);
   });
 }
@@ -390,13 +370,13 @@ menuButton.onclick=e=>{
     menu.style.top=(rect.bottom+6+window.scrollY)+'px';
     menu.style.display='block';
     menuButton.setAttribute('aria-expanded','true');
-  } else hideMenu();
+  } else hideMenus();
 };
 document.addEventListener('click',e=>{
-  if(!menu.contains(e.target) && e.target !== menuButton) hideMenu();
-  if (!secMenu.contains(e.target)) hideSectionMenu();
+  if(!menu.contains(e.target) && e.target !== menuButton) hideMenus();
+  if (!secMenu.contains(e.target)) hideMenus();
 });
-document.addEventListener('keydown',e=>{ if(e.key==='Escape') hideMenu(); });
+document.addEventListener('keydown',e=>{ if(e.key==='Escape') hideMenus(); });
 
 // ================= List selection =================
 function selectList(name,data){
@@ -551,7 +531,7 @@ function renderSection(container,section,parentSections,parentEffectiveFilter){
 
       render();
       scheduleSave();
-      hideSectionMenu();
+      hideMenus();
     } else {
       buildSectionMenu(section, secMenu);
       const rect = toggleBtn.getBoundingClientRect();
