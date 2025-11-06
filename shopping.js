@@ -87,7 +87,7 @@ function updateStatus() {
 }
 
 function scheduleSave() {
-  if(!currentList) return;
+  if(!currentList) return;  // should not happen
   clearTimeout(saveTimeout);
   isModified = true;
   updateStatus();
@@ -237,7 +237,6 @@ function createNewList(name=null) {
 }
 
 function deleteCurrentList() {
-  if(!currentList) return;
   if(!confirm(`Delete list "${currentList.name}"?`)) return;
   fetch(`/shopping/api.cgi/${currentList.name}`,{method:'DELETE'}).catch(console.error);
   allLists = allLists.filter(l=>l.name!==currentList.name);
@@ -267,17 +266,14 @@ function traverseSections(items, secFn = null, itFn = null, doRender=true) {
 }
 
 function expandAll() {
-  if (!currentList) return;
   traverseSections(currentList.items, sec => sec.collapsed = false);
 }
 
 function collapseAll() {
-  if (!currentList) return;
   traverseSections(currentList.items, sec => sec.collapsed = true);
 }
 
 function uncheckAll() {
-  if (!currentList) return;
   traverseSections(currentList.items, null, it => {
     if (it.type === 'item') {
       it.checked = false;
@@ -287,7 +283,6 @@ function uncheckAll() {
 };
 
 function clearAllFilters() {
-  if (!currentList) return;
   currentList.filter = "",
   traverseSections(currentList.items, sec => sec.filter = '');
 }
@@ -357,7 +352,6 @@ function buildMenu() {
   colorInput.type = 'color';
   colorInput.value = currentList?.bgColor || '#ffffff'; // default white
   colorInput.oninput = () => {
-    if (!currentList) return;
     currentList.bgColor = colorInput.value;
     document.body.style.backgroundColor = currentList.bgColor || '#ffffff' ;
     document.body.style.color = getContrastColor(currentList.bgColor || '#ffffff');
@@ -659,11 +653,6 @@ function renderItems(container, items, parentItems, effectiveFilter = 'all', par
 function render(){
   document.body.style.backgroundColor = currentList.bgColor || '#ffffff';
   document.body.style.color = getContrastColor(currentList.bgColor || '#ffffff');
-  if(!currentList){
-    listName.textContent='No List Selected';
-    container.innerHTML='';
-    return;
-  }
   renderItems(container,currentList.items,currentList.items, currentList.filter || 'all');
   if (focusItem) {
     const lines = container.querySelectorAll('.line-text');
