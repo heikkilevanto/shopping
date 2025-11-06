@@ -164,11 +164,8 @@ function buildSectionMenu(section, menu) {
     traverseSections(section.items, null, it => {
       if (it.type === 'item') {
         it.checked = false;
-        console.log("Unchecked ", it);
       }
     });
-    render();
-    scheduleSave();
     hideSectionMenu();
   };
   menu.appendChild(uncheckDiv);
@@ -248,29 +245,31 @@ function deleteCurrentList() {
 
 // Helper to recurse through a section, and do something for each
 // section we meet and/or each item we meet.
-function traverseSections(items, secFn, itFn = null) {
+// Finally render and schedule a save, if requested
+function traverseSections(items, secFn = null, itFn = null, doRender=true) {
   items.forEach(item => {
     if (item.type === 'section') {
       if (secFn) secFn(item);
-      traverseSections(item.items, secFn, itFn); // recurse into subsections
+      traverseSections(item.items, secFn, itFn, false); // recurse into subsections
+        // without rendering on every level
     } else if ( item.type  = 'item' ) {
       if (itFn) itFn(item);
     }
   });
+  if (doRender) {
+    render();
+    scheduleSave();
+  }
 }
 
 function expandAll() {
   if (!currentList) return;
   traverseSections(currentList.items, sec => sec.collapsed = false);
-  render();
-  scheduleSave();
 }
 
 function collapseAll() {
   if (!currentList) return;
   traverseSections(currentList.items, sec => sec.collapsed = true);
-  render();
-  scheduleSave();
 }
 
 function uncheckAll() {
@@ -280,8 +279,6 @@ function uncheckAll() {
       it.checked = false;
     }
   });
-  render();
-  scheduleSave();
   hideSectionMenu();
 };
 
@@ -289,8 +286,6 @@ function clearAllFilters() {
   if (!currentList) return;
   currentList.filter = "",
   traverseSections(currentList.items, sec => sec.filter = '');
-  render();
-  scheduleSave();
 }
 
 function addMenuItem(menu, text, onClick) {
