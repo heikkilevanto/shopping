@@ -242,7 +242,8 @@ function deleteCurrentList() {
   allLists = allLists.filter(l=>l.name!==currentList.name);
   if(!allLists.length)
     createNewList("NewList"); // Make sure we have something
-  selectList(allLists[0].name);
+  else
+    selectList(allLists[0].name);
   render();
 }
 
