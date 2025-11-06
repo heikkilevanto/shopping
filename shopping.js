@@ -105,7 +105,7 @@ function scheduleSave() {
       updateStatus();
     })
     .catch(console.error);
-  },2000);
+  },2000); // 2 seconds
 }
 
 function hideMenu() {
@@ -217,9 +217,11 @@ function hideSectionMenu() {
 
 // ================= Menu actions =================
 
-function createNewList() {
-  const name = prompt('Enter new list name:');
-  if(!name) return;
+function createNewList(name=null) {
+  if (! name)
+    name = prompt('Enter new list name:');
+  if(!name)
+    name = "NewList";
   const newListObj = {
     name,
     items:[{
@@ -239,7 +241,9 @@ function deleteCurrentList() {
   if(!confirm(`Delete list "${currentList.name}"?`)) return;
   fetch(`/shopping/api.cgi/${currentList.name}`,{method:'DELETE'}).catch(console.error);
   allLists = allLists.filter(l=>l.name!==currentList.name);
-  currentList = null;
+  if(!allLists.length)
+    createNewList("NewList"); // Make sure we have something
+  selectList(allLists[0].name);
   render();
 }
 
@@ -692,7 +696,10 @@ fetch('/shopping/api.cgi/')
   .then(r=>r.json())
   .then(data=>{
     allLists = data.map(name=>({name}));
-    if(allLists.length) selectList(allLists[0].name);
   })
   .catch(err=>console.log('Using default list:',err));
+  if (!allLists.length)  // Make sure we have at least some list
+    createNewList("NewList");
+  selectList(allLists[0].name);
+
 
