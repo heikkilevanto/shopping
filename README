@@ -55,3 +55,5 @@ At the moment the drag.sj will only work on my desktop. I have tried to make it
 work on the mobile but chaggpt always fucks up the touch handling, so the
 system gets confused which gestures are for the app and which for the browser
 itself. F.ex. dragging down will want to refresh the page, no matter what.
+
+There is an example apache config under etc, adjust as needed.

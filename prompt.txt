@@ -1,5 +1,7 @@
-Prompts
 
+Note: I have not (yet?) managed to get the dragging to work on my mobile.
+Keeping this prompt here in the case I want to restart messing with it.
+(Next time, write down what problems I run into)
 
 
 Summary of design criteria for drag-reorder:
