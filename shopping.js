@@ -160,7 +160,7 @@ function buildSectionMenu(section, menu) {
   }
 
   addMenuItem(menu,"Uncheck All", () => {
-    traverseSections(section.items, null, it => {it.checked = false;}
+    traverseSections(section.items, null, it => {it.checked = false;} );
   });
 
   const filterDiv = document.createElement('div');
@@ -666,10 +666,16 @@ fetch('/shopping/api.cgi/')
   .then(r=>r.json())
   .then(data=>{
     allLists = data.map(name=>({name}));
+    if (!allLists.length) { // Make sure we have at least some list
+      console.log("No lists found. Creating NewList");
+      createNewList("NewList");
+    }
+    let want = window.preferredList || "";
+    let idx = allLists.findIndex(l => l.name === want);
+    if (idx < 0) idx = 0;
+
+    selectList(allLists[idx].name);
   })
   .catch(err=>console.log('Using default list:',err));
-  if (!allLists.length)  // Make sure we have at least some list
-    createNewList("NewList");
-  selectList(allLists[0].name);
 
 

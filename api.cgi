@@ -35,6 +35,7 @@ if ($ENV{REQUEST_METHOD} eq 'GET' && ($path_info eq '' || $path_info eq '/') ) {
       } else {
           print "<p>No lists found.</p>\n";
       }
+      # TODO - Delete old .DEL and .bak files, probably in the same loop
 }
 
 elsif ( $ENV{REQUEST_METHOD} eq 'GET' ) {  # return file contents

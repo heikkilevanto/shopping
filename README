@@ -10,6 +10,9 @@ and a back-end that is a perl cgi script.  It can do three things:
   POST .../shopping/api.cgi/shop - create or update the shop.json file
 The back-end also serves static files line index.html, shopping.js and .css, etc
 
+The "main" program is a very simple index.cgi that parses the ?l=foo parameter,
+and invokes the shopping.js script with it. The scritp does all the work.
+
 Here is a canonical example of the json:
 
 {
@@ -47,3 +50,8 @@ text is empty.
 
 Any changes made in the UI should be autosaved to back-end after a few seconds.
 
+
+At the moment the drag.sj will only work on my desktop. I have tried to make it
+work on the mobile but chaggpt always fucks up the touch handling, so the
+system gets confused which gestures are for the app and which for the browser
+itself. F.ex. dragging down will want to refresh the page, no matter what.

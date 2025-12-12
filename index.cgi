@@ -1,5 +1,6 @@
 #!/usr/bin/perl
 use File::stat;
+use CGI qw(param);
 
 print <<'END';
 
@@ -41,6 +42,10 @@ sub scriptlink {
   my $v = stat($f)->mtime;
   print "<script type='module' src='$f?v=$v'></script>\n";
 }
+
+my $pref = param('l') // '';   # preferred list name
+$pref = CGI::escapeHTML($pref);
+print "<script>window.preferredList = '$pref' ;</script>\n";
 
 scriptlink("drag.js");
 scriptlink("shopping.js");
