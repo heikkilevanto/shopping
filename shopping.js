@@ -86,27 +86,33 @@ function updateStatus() {
   }
 }
 
-function scheduleSave() {
-  if(!currentList) return;  // should not happen
+function saveCurrentList() {
+  isSaving = true;
+  updateStatus();
   clearTimeout(saveTimeout);
+
+  return fetch(`/shopping/api.cgi/${currentList.name}`, {
+    method: 'POST',
+    body: JSON.stringify(currentList, null, 2) + '\n',
+    headers: { 'Content-Type': 'application/json' }
+  }).then(() => {
+    isSaving = false;
+    isModified = false;
+    updateStatus();
+  });
+}
+
+function scheduleSave() {
+  clearTimeout(saveTimeout);
+  if (!currentList) return;
   isModified = true;
   updateStatus();
+
   saveTimeout = setTimeout(() => {
-    isSaving = true;
-    updateStatus();
-    fetch(`/shopping/api.cgi/${currentList.name}`, {
-      method: 'POST',
-      body: JSON.stringify(currentList,null,2)+'\n',
-      headers: {'Content-Type':'application/json'}
-    })
-    .then(() => {
-      isSaving = false;
-      isModified = false;
-      updateStatus();
-    })
-    .catch(console.error);
-  },2000); // 2 seconds
+    saveCurrentList().catch(console.error);
+  }, 2000);  // in ms
 }
+
 
 function hideMenus() {  // Hide both section and global menus
   menu.style.display = 'none';
@@ -208,6 +214,7 @@ function buildSectionMenu(section, menu) {
 // ================= Menu actions =================
 
 function createNewList(name=null) {
+  // TODO - Save the current list if modified
   if (! name)
     name = prompt('Enter new list name:');
   if(!name)
@@ -380,10 +387,18 @@ document.addEventListener('keydown',e=>{ if(e.key==='Escape') hideMenus(); });
 
 // ================= List selection =================
 function selectList(name,data){
+  // TODO Save the current list if modified
+  // Can happen while waiting for the savetimeout
   document.title=name;
   listName.textContent=name;
-  if(data){ currentList=data; render(); }
-  else fetch(`/shopping/api.cgi/${name}`).then(r=>r.json()).then(d=>{ currentList=d; render(); });
+  if(data){
+    currentList=data;
+    render();
+  }
+  else
+    fetch(`/shopping/api.cgi/${name}`)
+    .then(r=>r.json())
+    .then(d=>{ currentList=d; render(); });
 }
 
 // ================= Render =================
@@ -459,6 +474,7 @@ function renderItem(container,item,parentItems,parentSection){
         text=text.slice(2).trim();
       } else if(text.startsWith('.')) {
         item.type='text';
+        text=text.slice(2).trim();
       } else if(text.startsWith('s ')){
         const idx = parentItems.indexOf(item);
         const newSection = {
