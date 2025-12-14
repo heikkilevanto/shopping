@@ -765,11 +765,9 @@ function renderIndex() {
         // render items below the title
         const itemsDiv = document.createElement('div');
         box.appendChild(itemsDiv);
-        renderItems(itemsDiv, list.items, list.items, 'all');
+        renderItems(itemsDiv, list.items, list.items, 'unchecked');
       });
-    // reuse your existing renderer
   }
-
   appContainer.appendChild(index);
 }
 
