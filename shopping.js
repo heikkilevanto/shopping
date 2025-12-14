@@ -235,13 +235,17 @@ function createNewList(name=null) {
 
 function deleteCurrentList() {
   if(!confirm(`Delete list "${currentList.name}"?`)) return;
-  fetch(`/shopping/api.cgi/${currentList.name}`,{method:'DELETE'}).catch(console.error);
-  allLists = allLists.filter(l=>l.name!==currentList.name);
-  if(!allLists.length)
-    createNewList("NewList"); // Make sure we have something
-  else
-    selectList(allLists[0].name);
-  render();
+  fetch(`/shopping/api.cgi/${currentList.name}`,{method:'DELETE'})
+  .then ( data => {
+    allLists = allLists.filter(l=>l.name!==currentList.name);
+    if(!allLists.length) {
+      createNewList("NewList"); // Make sure we have something
+    }
+    else
+      selectList(allLists[0].name);
+    render();
+  })
+  .catch(console.error);
 }
 
 // Helper to recurse through a section, and do something for each
@@ -647,7 +651,7 @@ function renderItems(container, items, parentItems, effectiveFilter = 'all', par
 }
 
 // Main render
-function render(){
+function render(into = document.body){
   document.body.style.backgroundColor = currentList.bgColor || '#ffffff';
   document.body.style.color = getContrastColor(currentList.bgColor || '#ffffff');
   renderItems(container,currentList.items,currentList.items, currentList.filter || 'all');
@@ -668,7 +672,7 @@ function render(){
 
 
 // ================= Init =================
-// Initialize drag module (if available). Place after render definition but before first fetch/selectList call.
+// Initialize drag module (if available).
 if (typeof drag !== 'undefined' && drag.init) {
   drag.init({
     container,
