@@ -213,6 +213,11 @@ function buildSectionMenu(section, menu) {
 
 // ================= Menu actions =================
 
+// Go back to the index page
+function indexLink() {
+  window.location.href = window.location.pathname;
+}
+
 function createNewList(name=null) {
   // TODO - Save the current list if modified
   if (! name)
@@ -238,12 +243,7 @@ function deleteCurrentList() {
   fetch(`/shopping/api.cgi/${currentList.name}`,{method:'DELETE'})
   .then ( data => {
     allLists = allLists.filter(l=>l.name!==currentList.name);
-    if(!allLists.length) {
-      createNewList("NewList"); // Make sure we have something
-    }
-    else
-      selectList(allLists[0].name);
-    render();
+    indexLink();
   })
   .catch(console.error);
 }
@@ -297,6 +297,7 @@ function buildMenu() {
   menu.style.background = bg;
   menu.style.color = getContrastColor(bg);
 
+  addMenuItem(menu, 'Index of Lists', indexLink);
   addMenuItem(menu, 'New List', createNewList);
   addMenuItem(menu, 'Delete List', deleteCurrentList);
   // separator
@@ -537,35 +538,37 @@ function renderSection(container,section,parentSections,parentEffectiveFilter){
   const header=document.createElement('div');
   header.className='section-header';
   const toggleBtn = document.createElement('button');
-  toggleBtn.textContent = section.collapsed ? '[+]' : '[-]';
-  toggleBtn.style.marginRight = '0.5em';
-  toggleBtn.type = 'button';
+  if ( currentList ) {
+      toggleBtn.textContent = section.collapsed ? '[+]' : '[-]';
+      toggleBtn.style.marginRight = '0.5em';
+      toggleBtn.type = 'button';
 
-  toggleBtn.onclick = e => {
-    e.stopPropagation();
-    if (secMenu.style.display === 'block' || e.detail === 2) {
-      section.collapsed = !section.collapsed;
+      toggleBtn.onclick = e => {
+        e.stopPropagation();
+        if (secMenu.style.display === 'block' || e.detail === 2) {
+          section.collapsed = !section.collapsed;
 
-      // set focusItem to the section title before render
-      focusItem = section;
+          // set focusItem to the section title before render
+          focusItem = section;
 
-      render();
-      scheduleSave();
-      hideMenus();
-    } else {
-      buildSectionMenu(section, secMenu);
-      const rect = toggleBtn.getBoundingClientRect();
-      secMenu.style.left = rect.left + 'px';
-      secMenu.style.top = rect.bottom + window.scrollY + 4 + 'px';
-      secMenu.style.display = 'block';
-    }
-  };
+          render();
+          scheduleSave();
+          hideMenus();
+        } else {
+          buildSectionMenu(section, secMenu);
+          const rect = toggleBtn.getBoundingClientRect();
+          secMenu.style.left = rect.left + 'px';
+          secMenu.style.top = rect.bottom + window.scrollY + 4 + 'px';
+          secMenu.style.display = 'block';
+        }
+      };
 
-  document.addEventListener('click', e => {  // hide menu
-    if (!secMenu.contains(e.target) && e.target !== toggleBtn) secMenu.style.display = 'none';
-  });
+    document.addEventListener('click', e => {  // hide menu
+      if (!secMenu.contains(e.target) && e.target !== toggleBtn) secMenu.style.display = 'none';
+    });
 
-  header.appendChild(toggleBtn);
+    header.appendChild(toggleBtn);
+  }
 
   const title=document.createElement('span');
   title.className='title';
@@ -627,7 +630,7 @@ function renderSection(container,section,parentSections,parentEffectiveFilter){
   }
 
   // Register toggle button as the section drag handle
-  if (typeof drag !== 'undefined' && drag.registerDragHandle) {
+  if (typeof drag !== 'undefined' && drag.registerDragHandle && currentList) {
     drag.registerDragHandle(toggleBtn, { type: 'section', itemOrSection: section, parentArray: parentSections, domNode: sec });
   }
 
@@ -651,13 +654,19 @@ function renderItems(container, items, parentItems, effectiveFilter = 'all', par
 }
 
 // Main render
-function render(into = document.body){
-  document.body.style.backgroundColor = currentList.bgColor || '#ffffff';
-  document.body.style.color = getContrastColor(currentList.bgColor || '#ffffff');
-  renderItems(container,currentList.items,currentList.items, currentList.filter || 'all');
+function render(target){
+  if (!target) {
+    document.body.style.backgroundColor = currentList.bgColor || '#ffffff';
+    document.body.style.color = getContrastColor(currentList.bgColor || '#ffffff');
+    target = container;
+  } else {
+    target.style.backgroundColor = currentList.bgColor || '#ffffff';
+    target.style.color = getContrastColor(currentList.bgColor || '#ffffff');
+  }
+  renderItems(target,currentList.items,currentList.items, currentList.filter || 'all');
   if (focusItem) {
-    const lines = container.querySelectorAll('.line-text');
-    const titles = container.querySelectorAll('.section-header .title');
+    const lines = target.querySelectorAll('.line-text');
+    const titles = target.querySelectorAll('.section-header .title');
     let focused = false;
     for (const l of lines) {
       if (l._item === focusItem) { focusEditable(l); focused = true; break; }
@@ -669,6 +678,49 @@ function render(into = document.body){
   }
 
 }
+
+// ==================== Index page =========================
+function renderIndex() {
+  appContainer.innerHTML = '<h1>' + currentUser + "'s lists</h1>";
+  document.body.style.backgroundColor = "#444";
+  document.body.style.color = "#ccc";
+  currentList = null;
+
+  const index = document.createElement('div');
+  index.id = 'list-index';
+
+  for (const l of allLists) {
+    const link = document.createElement('a');
+    link.href = `?l=${encodeURIComponent(l.name)}`;
+    link.style.display = 'block';
+    link.style.textDecoration = 'none';
+    link.className = 'list-link';
+
+    const box = document.createElement('div');
+    box.className = 'list-preview';
+    box.style.pointerEvents = 'none'; // disables clicks inside preview
+
+    link.appendChild(box);
+    index.appendChild(link);
+
+    fetch(`/shopping/api.cgi/${l.name}`)
+      .then(r => r.json())
+      .then(list => {
+        box.style.backgroundColor = list.bgColor || '#ffffff';
+        box.style.color = getContrastColor(list.bgColor || '#ffffff');
+        box.innerHTML = `<strong>&nbsp;${list.name}</strong>`;  // list title
+
+        // render items below the title
+        const itemsDiv = document.createElement('div');
+        box.appendChild(itemsDiv);
+        renderItems(itemsDiv, list.items, list.items, 'all');
+      });
+    // reuse your existing renderer
+  }
+
+  appContainer.appendChild(index);
+}
+
 
 
 // ================= Init =================
@@ -690,7 +742,15 @@ fetch('/shopping/api.cgi/')
       console.log("No lists found. Creating NewList");
       createNewList("NewList");
     }
-    let want = window.preferredList || "";
+    //let want = window.preferredList || "";
+    const params = new URLSearchParams(window.location.search);
+    const want = params.get('l');   // null if not present
+
+    if ( !want ) {
+      renderIndex();
+      return;
+    }
+
     let idx = allLists.findIndex(l => l.name === want);
     if (idx < 0) idx = 0;
 

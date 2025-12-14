@@ -1,6 +1,5 @@
 #!/usr/bin/perl
 use File::stat;
-use CGI qw(param);
 
 print <<'END';
 
@@ -22,6 +21,23 @@ print <<'END';
   .line-text { margin-left: 0.5em; flex: 1; cursor: text; }
   .section-header, .line { flex-wrap: wrap; }
   .menu { margin-left: 0.5em; }
+  .list-preview {
+    flex: 0 0 15em;
+    width: 16em;
+    height: 12em;
+    overflow: hidden;
+    white-space: nowrap;
+    font-size: 0.55em;
+    border: 2px solid black;
+     border-radius: 0.5em;
+    padding: 0.3em;
+    box-sizing: border-box;
+  }
+  #list-index {
+    display: flex;
+    flex-wrap: wrap;        /* wrap to next line */
+    gap: 0.5em;             /* space between boxes */
+  }
   @media (max-width: 600px) {
     body { padding: 0.5em; }
     .section { padding: 0.3em; }
@@ -43,9 +59,9 @@ sub scriptlink {
   print "<script type='module' src='$f?v=$v'></script>\n";
 }
 
-my $pref = param('l') // '';   # preferred list name
-$pref = CGI::escapeHTML($pref);
-print "<script>window.preferredList = '$pref' ;</script>\n";
+my $user = $ENV{REMOTE_USER} // '??';
+$user = ucfirst($user);
+print "<script>const currentUser = '$user';</script>\n";
 
 scriptlink("drag.js");
 scriptlink("shopping.js");
