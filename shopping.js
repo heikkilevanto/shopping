@@ -390,6 +390,52 @@ document.addEventListener('click',e=>{
 });
 document.addEventListener('keydown',e=>{ if(e.key==='Escape') hideMenus(); });
 
+// ================= FavIcon =================
+function setListFavicon(name, bgColor) {
+  const size = 64;
+  const canvas = document.createElement('canvas');
+  canvas.width = canvas.height = size;
+  const ctx = canvas.getContext('2d');
+
+  // background
+  const r = 16; // corner radius
+  ctx.fillStyle = bgColor || '#ffffff';
+  ctx.beginPath();
+  ctx.moveTo(r, 0);
+  ctx.lineTo(size - r, 0);
+  ctx.quadraticCurveTo(size, 0, size, r);
+  ctx.lineTo(size, size - r);
+  ctx.quadraticCurveTo(size, size, size - r, size);
+  ctx.lineTo(r, size);
+  ctx.quadraticCurveTo(0, size, 0, size - r);
+  ctx.lineTo(0, r);
+  ctx.quadraticCurveTo(0, 0, r, 0);
+  ctx.closePath();
+  ctx.fill();
+
+  // letter
+ // extract up to 3 letters
+  const letters = name
+    .replace(/[^A-Z]/g, '')
+    .slice(0, 3) || '?';
+
+  // text
+  ctx.fillStyle = getContrastColor(bgColor || '#ffffff');
+  ctx.font = `bold ${letters.length === 1 ? 40 : 28}px sans-serif`;
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillText(letters, size / 2, size / 2 + 2);
+
+  // set favicon
+  let link = document.querySelector("link[rel='icon']");
+  if (!link) {
+    link = document.createElement('link');
+    link.rel = 'icon';
+    document.head.appendChild(link);
+  }
+  link.href = canvas.toDataURL('image/png');
+}
+
 // ================= List selection =================
 function selectList(name,data){
   // TODO Save the current list if modified
@@ -403,7 +449,11 @@ function selectList(name,data){
   else
     fetch(`/shopping/api.cgi/${name}`)
     .then(r=>r.json())
-    .then(d=>{ currentList=d; render(); });
+    .then(d=>{
+      currentList=d;
+      render();
+      setListFavicon(name,currentList?.bgColor || '#fff');
+    });
 }
 
 // ================= Render =================
