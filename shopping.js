@@ -734,7 +734,9 @@ function renderIndex() {
   appContainer.innerHTML = '<h1>' + currentUser + "'s lists</h1>";
   document.body.style.backgroundColor = "#444";
   document.body.style.color = "#ccc";
-  currentList = null;
+  currentList = null;  // indicator for not menyu buttons
+
+  setListFavicon(currentUser, document.body.style.color);
 
   const index = document.createElement('div');
   index.id = 'list-index';
