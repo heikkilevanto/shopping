@@ -158,7 +158,7 @@ function buildSectionMenu(section, menu) {
     });
   } else {
     addMenuItem(menu,"Collapse", () => {
-      section.collapsed = false;
+      section.collapsed = true;
       focusItem = section;
       render();
       scheduleSave();
@@ -257,7 +257,7 @@ function traverseSections(items, secFn = null, itFn = null, doRender=true) {
       if (secFn) secFn(item);
       traverseSections(item.items, secFn, itFn, false); // recurse into subsections
         // without rendering on every level
-    } else if ( item.type  = 'item' ) {
+    } else if ( item.type  === 'item' ) {
       if (itFn) itFn(item);
     }
   });
@@ -615,7 +615,7 @@ function renderSection(container,section,parentSections,parentEffectiveFilter){
 
     document.addEventListener('click', e => {  // hide menu
       if (!secMenu.contains(e.target) && e.target !== toggleBtn) secMenu.style.display = 'none';
-    });
+    }); // TODO - Adds too many listeners. Use only one, set up in init.
 
     header.appendChild(toggleBtn);
   }
