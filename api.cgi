@@ -4,6 +4,11 @@ use warnings;
 use CGI;
 use File::Copy qw(copy);
 
+use feature 'unicode_strings';
+use utf8;  # Source code and string literals are utf-8
+binmode STDOUT, ":utf8"; # Stdout only. Not STDIN, the CGI module handles that
+binmode STDERR, ":utf8"; #
+
 
 # --- configuration ---
 my $base_dir = "data";       # relative to index.cgi
@@ -43,7 +48,7 @@ elsif ( $ENV{REQUEST_METHOD} eq 'GET' ) {  # return file contents
       unless ($path_info =~ /^\/?[a-zA-ZåÅæÆøØ0-9_]+$/ );
     open my $fh, "<:encoding(UTF-8)", "$fullfile" or
       error ("500","","Can not open '$fullfile'");
-    print "Content-Type: application/json\r\n\r\n";
+    print "Content-Type: application/json; charset=UTF-8\r\n\r\n";
     local $/;
     print <$fh>;
     close $fh;
