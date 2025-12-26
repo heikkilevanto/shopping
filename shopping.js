@@ -2,6 +2,8 @@
 // Handles the logic and display, uses a simpel REST-like
 // back end for storage
 
+"use strict";  // Croak on undefined vars etc
+
 // ================= Data =================
 let allLists = [];   // {name}
 let currentList = null;
@@ -44,7 +46,7 @@ listStatus.style.fontWeight = 'normal';
 titleContainer.appendChild(listStatus);
 
 
-// Menu dropdown
+// Main Menu dropdown
 const menu = document.createElement('div');
 menu.style.display = 'none';
 menu.style.position = 'absolute';
@@ -55,7 +57,7 @@ menu.style.boxShadow = '0 2px 6px rgba(0,0,0,0.15)';
 menu.style.zIndex = '1000';
 body.appendChild(menu);
 
-// Section menu (shared)
+// Section menu. There is only this one, shown on any section when opened.
 const secMenu = document.createElement('div');
 secMenu.style.display = 'none';
 secMenu.style.position = 'absolute';
@@ -554,7 +556,7 @@ function renderItem(container,item,parentItems,parentSection){
       scheduleSave();
     }
   };
-  span.onblur=()=>{
+  span.oninput=()=>{
     const currentText=span.textContent.trim();
     if(currentText==='' && parentItems.length>1){
       const idx=parentItems.indexOf(item);
@@ -655,7 +657,7 @@ function renderSection(container,section,parentSections,parentEffectiveFilter){
     render();
   };
 
-  title.onblur = () => {
+  title.oninput = () => {
     const t = title.textContent.trim();
     if (section.title !== t) {
       section.title = t;
