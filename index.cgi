@@ -64,7 +64,7 @@ sub scriptlink {
     return;
   }
   my $v = stat($f)->mtime;
-  print "<script type='module' src='$f?v=$v'></script>\n";
+  print "<script src='$f?v=$v'></script>\n";
 }
 
 my $user = $ENV{REMOTE_USER} // '??';
@@ -72,4 +72,5 @@ $user = ucfirst($user);
 print "<script>const currentUser = '$user';</script>\n";
 
 scriptlink("drag.js");
+scriptlink("menu.js");
 scriptlink("shopping.js");

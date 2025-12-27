@@ -27,10 +27,7 @@ titleContainer.style.alignItems = 'center';
 titleContainer.style.gap = '0.5em';
 appContainer.appendChild(titleContainer);
 
-const menuButton = document.createElement('button');
-menuButton.textContent = '☰';
-menuButton.type = 'button';
-menuButton.style.padding = '0.15em 0.5em';
+const menuButton = makeMenuButton();
 titleContainer.appendChild(menuButton);
 
 const listName = document.createElement('span');
@@ -47,15 +44,7 @@ titleContainer.appendChild(listStatus);
 
 
 // Main Menu dropdown
-const menu = document.createElement('div');
-menu.className = 'menu';
-menu.style.display = 'none';
-menu.style.position = 'absolute';
-menu.style.background = '#fff';
-menu.style.border = '1px solid #ccc';
-menu.style.padding = '4px 0';
-menu.style.boxShadow = '0 2px 6px rgba(0,0,0,0.15)';
-menu.style.zIndex = '1000';
+const menu = makeMainMenuDiv();
 body.appendChild(menu);
 
 // Section menu. There is only this one, shown on any section when opened.
