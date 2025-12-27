@@ -48,6 +48,7 @@ titleContainer.appendChild(listStatus);
 
 // Main Menu dropdown
 const menu = document.createElement('div');
+menu.className = 'menu';
 menu.style.display = 'none';
 menu.style.position = 'absolute';
 menu.style.background = '#fff';
@@ -59,6 +60,7 @@ body.appendChild(menu);
 
 // Section menu. There is only this one, shown on any section when opened.
 const secMenu = document.createElement('div');
+menu.className = 'menu';
 secMenu.style.display = 'none';
 secMenu.style.position = 'absolute';
 secMenu.style.background = currentList?.bgColor || '#fff';
@@ -365,12 +367,14 @@ function buildMenu() {
 
   // list entries
   allLists.forEach(lst=>{
-    const li=document.createElement('div');
-    li.textContent=lst.name;
-    li.style.padding='4px 12px';
-    li.style.cursor='pointer';
-    li.onclick=()=>{ hideMenus(); selectList(lst.name); };
-    menu.appendChild(li);
+    const a = document.createElement('a');
+    a.textContent = lst.name;
+    a.href = `?l=${encodeURIComponent(lst.name)}`;
+    a.style.display = 'block';
+    a.style.padding = '4px 12px';
+    a.style.cursor = 'pointer';
+    a.onclick = (e) => { hideMenus(); selectList(lst.name); };
+    menu.appendChild(a);
   });
 }
 

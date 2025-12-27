@@ -44,6 +44,14 @@ print <<'END';
     .line { padding: 0.1em 0; }
     .menu { margin-left: 0; }
   }
+  .menu a,
+  .menu a:visited,
+  .menu a:hover,
+  .menu a:active {
+    color: inherit;
+    text-decoration: none;
+  }
+
 </style>
 </head>
 <body>
