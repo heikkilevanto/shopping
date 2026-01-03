@@ -27,7 +27,10 @@ titleContainer.style.alignItems = 'center';
 titleContainer.style.gap = '0.5em';
 appContainer.appendChild(titleContainer);
 
-const menuButton = makeMenuButton();
+const menuButton = document.createElement('button');
+menuButton.textContent = '☰';
+menuButton.type = 'button';
+menuButton.style.padding = '0.15em 0.5em';
 titleContainer.appendChild(menuButton);
 
 const listName = document.createElement('span');
@@ -42,23 +45,6 @@ listStatus.style.fontWeight = 'normal';
 //listStatus.style.color = '#c00';  // red for modified
 titleContainer.appendChild(listStatus);
 
-
-// Main Menu dropdown
-const menu = makeMainMenuDiv();
-body.appendChild(menu);
-
-// Section menu. There is only this one, shown on any section when opened.
-const secMenu = document.createElement('div');
-menu.className = 'menu';
-secMenu.style.display = 'none';
-secMenu.style.position = 'absolute';
-secMenu.style.background = currentList?.bgColor || '#fff';
-secMenu.style.color = getContrastColor(currentList?.bgColor || '#fff');
-secMenu.style.border = '1px solid #ccc';
-secMenu.style.padding = '4px 0';
-secMenu.style.boxShadow = '0 2px 6px rgba(0,0,0,0.15)';
-secMenu.style.zIndex = '1000';
-document.body.appendChild(secMenu);
 
 // Container for list items
 const container = document.createElement('div');
@@ -107,12 +93,6 @@ function scheduleSave() {
 }
 
 
-function hideMenus() {  // Hide both section and global menus
-  menu.style.display = 'none';
-  menuButton.setAttribute('aria-expanded','false');
-  secMenu.style.display = 'none';
-}
-
 function getContrastColor(hex) {
   // remove leading #
   if (hex.startsWith('#')) hex = hex.slice(1);
@@ -124,87 +104,68 @@ function getContrastColor(hex) {
   return lum > 186 ? '#000000' : '#ffffff'; // light bg → black, dark bg → white
 }
 
-function addMenuItem(menu, text, onClick) {
-  const div = document.createElement('div');
-  div.textContent = text;
-  div.style.padding = '4px 12px';
-  div.style.cursor = 'pointer';
-  div.onmouseover = () => div.style.background = '#eee';
-  div.onmouseout = () => div.style.background = '';
-  div.onclick = () => { onClick(); hideMenus(); };
-  menu.appendChild(div);
-}
+// ================= Menu integration =================
+// menu.js is included by the server-side page; we do not inject it here.
+// Initialize Menu if available; otherwise wait for window 'load' as a fallback.
 
-// ============== Section menu ==================
-
-
-
-function buildSectionMenu(section, menu) {
-  menu.innerHTML = '';
-
-  if ( section.collapsed ) {
-    addMenuItem(menu,"Expand", () => {
-      section.collapsed = false;
-      focusItem = section;
-      render();
-      scheduleSave();
+function initMenuIntegration(){
+  if (window.Menu && Menu.init) {
+    Menu.init({
+      menuButton,
+      getContrastColor,
+      callbacks: {
+        indexLink,
+        createNewList,
+        deleteCurrentList,
+        uncheckAll,
+        expandAll,
+        collapseAll,
+        clearAllFilters,
+        selectList: (name) => selectList(name),
+        scheduleSave,
+        changeCurrentBg: (bg) => {
+          if (!currentList) return;
+          currentList.bgColor = bg;
+          document.body.style.backgroundColor = bg || '#ffffff';
+          document.body.style.color = getContrastColor(bg || '#ffffff');
+          scheduleSave();
+          Menu.hideMenus();
+        }
+      },
+      document,
+      body: document.body
     });
+
+    if (allLists && Menu.setAllLists) Menu.setAllLists(allLists);
+    if (currentList && Menu.setCurrentList) Menu.setCurrentList(currentList);
   } else {
-    addMenuItem(menu,"Collapse", () => {
-      section.collapsed = true;
-      focusItem = section;
-      render();
-      scheduleSave();
-    });
+    // Wait for the page resources to be loaded — server should have included menu.js
+    window.addEventListener('load', () => {
+      if (window.Menu && Menu.init) {
+        initMenuIntegration(); // try again
+      } else {
+        console.warn('Menu module not available. Ensure menu.js is included by the page.');
+      }
+    }, { once: true });
   }
-
-  addMenuItem(menu,"Uncheck All", () => {
-    traverseSections(section.items, null, it => {it.checked = false;} );
-  });
-
-  const filterDiv = document.createElement('div');
-  filterDiv.style.padding = '4px 12px';
-  filterDiv.textContent = 'Show: ';
-  ['all','checked','unchecked','none'].forEach(f => {
-    const btn = document.createElement('button');
-    btn.type = 'button';
-    btn.textContent = f[0].toUpperCase() + f.slice(1);
-    btn.style.marginRight = '4px';
-    if (section.filter === f || (!section.filter && f === 'all')) {
-      btn.style.fontWeight = 'bold';
-      btn.style.textDecoration = 'underline';
-    }
-    btn.onclick = () => {
-      section.filter = section.filter = f === 'none' ? '' : f; // none = ''
-      focusItem = section;
-      render();
-      scheduleSave();
-      hideMenus();
-    };
-    filterDiv.appendChild(btn);
-  });
-  menu.appendChild(filterDiv);
-
-  // Color picker
-  const colorDiv = document.createElement('div');
-  colorDiv.style.padding = '4px 12px';
-  const colorLabel = document.createElement('label');
-  colorLabel.textContent = 'Color: ';
-  const colorInput = document.createElement('input');
-  const bg = section.bgColor ||currentList?.bgColor ||  '#ffffff';
-  colorInput.type = 'color';
-  colorInput.value = bg;
-  colorInput.oninput = () => { section.bgColor = colorInput.value; render(); scheduleSave(); };
-  colorLabel.appendChild(colorInput);
-  colorDiv.appendChild(colorLabel);
-  menu.appendChild(colorDiv);
-
-  menu.style.background = bg;
-  menu.style.color = getContrastColor(bg);
 }
 
+initMenuIntegration();
 
-// ================= Menu actions =================
+// Helper to call Menu.hideMenus() if available
+function hideAppMenus(){ if (window.Menu && Menu.hideMenus) Menu.hideMenus(); }
+
+// ============== Section menu actions that used to rely on hideMenus ================
+function uncheckAll() {
+  traverseSections(currentList.items, null, it => {
+    if (it.type === 'item') {
+      it.checked = false;
+    }
+  });
+  hideAppMenus();
+};
+
+// ============== Menu actions (unchanged) =================
 
 // Go back to the index page
 function indexLink() {
@@ -227,6 +188,7 @@ function createNewList(name=null) {
     }]
   };
   allLists.push({name});
+  if (window.Menu && Menu.setAllLists) Menu.setAllLists(allLists);
   selectList(name,newListObj);
   scheduleSave();
 }
@@ -236,6 +198,7 @@ function deleteCurrentList() {
   fetch(`/shopping/api.cgi/${currentList.name}`,{method:'DELETE'})
   .then ( data => {
     allLists = allLists.filter(l=>l.name!==currentList.name);
+    if (window.Menu && Menu.setAllLists) Menu.setAllLists(allLists);
     indexLink();
   })
   .catch(console.error);
@@ -268,122 +231,11 @@ function collapseAll() {
   traverseSections(currentList.items, sec => sec.collapsed = true);
 }
 
-function uncheckAll() {
-  traverseSections(currentList.items, null, it => {
-    if (it.type === 'item') {
-      it.checked = false;
-    }
-  });
-  hideMenus();
-};
-
 function clearAllFilters() {
   currentList.filter = "",
   traverseSections(currentList.items, sec => sec.filter = '');
 }
 
-
-// Build menu items dynamically
-function buildMenu() {
-  menu.innerHTML='';
-  const bg = currentList?.bgColor || '#ffffff';
-  menu.style.background = bg;
-  menu.style.color = getContrastColor(bg);
-
-  addMenuItem(menu, 'Index of Lists', indexLink);
-  addMenuItem(menu, 'New List', createNewList);
-  addMenuItem(menu, 'Delete List', deleteCurrentList);
-  // separator
-  const sep=document.createElement('div');
-  sep.style.borderTop='1px solid #ccc';
-  sep.style.margin='4px 0';
-  menu.appendChild(sep);
-
-  addMenuItem(menu, 'Uncheck All', uncheckAll);
-
-  addMenuItem(menu, 'Expand All', expandAll);
-  addMenuItem(menu, 'Collapse All', collapseAll);
-  addMenuItem(menu, 'Clear All Filters', clearAllFilters);
-
-  // Global filter
-  const gfDiv = document.createElement('div');
-  gfDiv.style.padding = '4px 12px';
-  gfDiv.textContent = 'Show: ';
-  ['checked','unchecked','none'].forEach(f=>{
-    const btn=document.createElement('button');
-    btn.type='button';
-    btn.textContent=f[0].toUpperCase()+f.slice(1);
-    btn.style.marginRight='4px';
-    if((currentList.filter||'all')===f){
-      btn.style.fontWeight='bold';
-      btn.style.textDecoration='underline';
-    }
-    btn.onclick=()=>{
-      currentList.filter = f==='none' ? '' : f;
-      render();
-      scheduleSave();
-      hideMenus();
-    };
-    gfDiv.appendChild(btn);
-  });
-  menu.appendChild(gfDiv);
-
-  // Color picker
-  const colorItem = document.createElement('div');
-  colorItem.style.padding = '4px 12px';
-  colorItem.style.cursor = 'default';
-  const colorLabel = document.createElement('label');
-  colorLabel.textContent = 'Background: ';
-  const colorInput = document.createElement('input');
-  colorInput.type = 'color';
-  colorInput.value = currentList?.bgColor || '#ffffff'; // default white
-  colorInput.oninput = () => {
-    currentList.bgColor = colorInput.value;
-    document.body.style.backgroundColor = currentList.bgColor || '#ffffff' ;
-    document.body.style.color = getContrastColor(currentList.bgColor || '#ffffff');
-    scheduleSave();
-    hideMenus();
-  };
-  colorLabel.appendChild(colorInput);
-  colorItem.appendChild(colorLabel);
-  menu.appendChild(colorItem);
-
-  // separator
-  const sep2=document.createElement('div');
-  sep2.style.borderTop='1px solid #ccc';
-  sep2.style.margin='4px 0';
-  menu.appendChild(sep2);
-
-  // list entries
-  allLists.forEach(lst=>{
-    const a = document.createElement('a');
-    a.textContent = lst.name;
-    a.href = `?l=${encodeURIComponent(lst.name)}`;
-    a.style.display = 'block';
-    a.style.padding = '4px 12px';
-    a.style.cursor = 'pointer';
-    a.onclick = (e) => { hideMenus(); selectList(lst.name); };
-    menu.appendChild(a);
-  });
-}
-
-// Show/hide menu
-menuButton.onclick=e=>{
-  e.stopPropagation();
-  if(menu.style.display==='none'){
-    buildMenu();
-    const rect=menuButton.getBoundingClientRect();
-    menu.style.left=rect.left+'px';
-    menu.style.top=(rect.bottom+6+window.scrollY)+'px';
-    menu.style.display='block';
-    menuButton.setAttribute('aria-expanded','true');
-  } else hideMenus();
-};
-document.addEventListener('click',e=>{
-  if(!menu.contains(e.target) && e.target !== menuButton) hideMenus();
-  if (!secMenu.contains(e.target)) hideMenus();
-});
-document.addEventListener('keydown',e=>{ if(e.key==='Escape') hideMenus(); });
 
 // ================= FavIcon =================
 function setListFavicon(name, bgColor) {
@@ -437,9 +289,17 @@ function selectList(name,data){
   // Can happen while waiting for the savetimeout
   document.title=name;
   listName.textContent=name;
+
+  // Update URL in address bar without reloading the page
+  try {
+    const newUrl = `${window.location.pathname}?l=${encodeURIComponent(name)}`;
+    history.replaceState(null, '', newUrl);
+  } catch (e) { /* ignore if history not available */ }
+
   if(data){
     currentList=data;
     render();
+    if (window.Menu && Menu.setCurrentList) Menu.setCurrentList(currentList);
   }
   else
     fetch(`/shopping/api.cgi/${name}`)
@@ -448,6 +308,7 @@ function selectList(name,data){
       currentList=d;
       render();
       setListFavicon(name,currentList?.bgColor || '#fff');
+      if (window.Menu && Menu.setCurrentList) Menu.setCurrentList(currentList);
     });
 }
 
@@ -590,27 +451,16 @@ function renderSection(container,section,parentSections,parentEffectiveFilter){
 
       toggleBtn.onclick = e => {
         e.stopPropagation();
-        if (secMenu.style.display === 'block' || e.detail === 2) {
+        if (e.detail === 2) {
           section.collapsed = !section.collapsed;
-
-          // set focusItem to the section title before render
           focusItem = section;
-
           render();
           scheduleSave();
-          hideMenus();
+          hideAppMenus();
         } else {
-          buildSectionMenu(section, secMenu);
-          const rect = toggleBtn.getBoundingClientRect();
-          secMenu.style.left = rect.left + 'px';
-          secMenu.style.top = rect.bottom + window.scrollY + 4 + 'px';
-          secMenu.style.display = 'block';
+          if (window.Menu && Menu.showSectionMenu) Menu.showSectionMenu(section, toggleBtn);
         }
       };
-
-    document.addEventListener('click', e => {  // hide menu
-      if (!secMenu.contains(e.target) && e.target !== toggleBtn) secMenu.style.display = 'none';
-    }); // TODO - Adds too many listeners. Use only one, set up in init.
 
     header.appendChild(toggleBtn);
   }
@@ -793,6 +643,7 @@ fetch('/shopping/api.cgi/')
 
     if ( !want ) {
       renderIndex();
+      if (window.Menu && Menu.setAllLists) Menu.setAllLists(allLists);
       return;
     }
 
@@ -800,7 +651,6 @@ fetch('/shopping/api.cgi/')
     if (idx < 0) idx = 0;
 
     selectList(allLists[idx].name);
+    if (window.Menu && Menu.setAllLists) Menu.setAllLists(allLists);
   })
   .catch(err=>console.log('Using default list:',err));
-
-
