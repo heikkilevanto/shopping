@@ -72,14 +72,14 @@ elsif ($ENV{REQUEST_METHOD} eq 'POST') {
     }
 
     if (-e $fullfile) {
-        copy($fullfile, "$fullfile.bak") or warn "Backup failed: $!";
+        copy($fullfile, "$fullfile.bak") or error("Backup failed: $!");
      } else {
        print STDERR "File '$fullfile' does not exist, creating it\n";
     }
 
     open my $fh, ">", $fullfile or die "Cannot write $file: $!";
     print $fh $new_content;
-    close $fh;
+    close $fh or error ("Failed to close $fullfile: $!");
     print STDERR "Saved " . length($new_content) . " bytes to '$fullfile' \n";
     print "Content-Type: text/plain; charset=utf-8\n\n";
     print "OK\n";
