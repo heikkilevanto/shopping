@@ -131,10 +131,11 @@ function initMenuIntegration(){
           scheduleSave();
           Menu.hideMenus();
         },
-        // New callbacks for sorting
+        // New callbacks for sorting and deletion
         sortJournal: () => sortJournal(),
         sortSection: (section) => sortSection(section),
-        // other callbacks already present
+        deleteSection: (section) => deleteSection(section),
+        // other callbacks
         toggleListType: () => toggleListType(),
         createJournalEntryForDate: (dateStr) => createJournalEntryForDate(dateStr)
       },
@@ -373,6 +374,77 @@ function sortSection(section) {
   scheduleSave();
 }
 
+// ============== Section deletion helpers ==============
+
+// Find the parent array and index of a target section by walking tree rooted at items.
+// Returns { parentArray, index } or null if not found.
+function findParentArrayAndIndex(items, target) {
+  if (!Array.isArray(items)) return null;
+  for (let i = 0; i < items.length; i++) {
+    const it = items[i];
+    if (it === target) return { parentArray: items, index: i };
+    if (it && it.type === 'section') {
+      const found = findParentArrayAndIndex(it.items, target);
+      if (found) return found;
+    }
+  }
+  return null;
+}
+// Recursively count non-empty item/text lines inside a section
+function countNonEmptyItems(section) {
+  if (!section || !Array.isArray(section.items)) return 0;
+  let count = 0;
+  for (const it of section.items) {
+    if (!it) continue;
+    if (it.type === 'item' || it.type === 'text') {
+      if (typeof it.text === 'string' && it.text.trim() !== '') count++;
+    } else if (it.type === 'section') {
+      count += countNonEmptyItems(it);
+    }
+  }
+  return count;
+}
+
+// Find the parent array and index of a target section by walking tree rooted at items.
+// Returns { parentArray, index } or null if not found.
+function findParentArrayAndIndex(items, target) {
+  if (!Array.isArray(items)) return null;
+  for (let i = 0; i < items.length; i++) {
+    const it = items[i];
+    if (it === target) return { parentArray: items, index: i };
+    if (it && it.type === 'section') {
+      const found = findParentArrayAndIndex(it.items, target);
+      if (found) return found;
+    }
+  }
+  return null;
+}
+
+// Delete a section: prompt only if it contains non-empty items
+function deleteSection(section) {
+  if (!currentList || !section) return;
+
+  // find parent array and index
+  const found = findParentArrayAndIndex(currentList.items, section);
+  if (!found) {
+    console.warn('deleteSection: parent not found');
+    return;
+  }
+
+  const nonEmptyCount = countNonEmptyItems(section);
+  if (nonEmptyCount > 0) {
+    if (!confirm(`This section contains ${nonEmptyCount} non-empty item(s). Delete the section and all its content?`)) return;
+  }
+
+  // perform deletion
+  found.parentArray.splice(found.index, 1);
+
+  // update UI and save
+  if (window.Menu && Menu.setCurrentList) Menu.setCurrentList(currentList);
+  render();
+  scheduleSave();
+}
+
 // Helper to recurse through a section, and do something for each
 // section we meet and/or each item we meet.
 // Finally render and schedule a save, if requested
@@ -391,10 +463,6 @@ function traverseSections(items, secFn = null, itFn = null, doRender=true) {
     scheduleSave();
   }
 }
-
-// ... rest of shopping.js (rendering, selection, etc.) remains the same ...
-// The file is unchanged besides the new functions above and the wiring in Menu.init.
-
 
 function expandAll() {
   traverseSections(currentList.items, sec => sec.collapsed = false);

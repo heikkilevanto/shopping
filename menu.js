@@ -121,6 +121,17 @@
       });
     }
 
+    // Delete Section (available for all lists)
+    const sepDel=document.createElement('div');
+    sepDel.style.borderTop='1px solid #ccc';
+    sepDel.style.margin='4px 0';
+    secMenu.appendChild(sepDel);
+    addMenuItem(secMenu, 'Delete Section', () => {
+      if (options.callbacks && typeof options.callbacks.deleteSection === 'function') {
+        options.callbacks.deleteSection(section);
+      }
+    });
+
     secMenu.style.background = bg;
     secMenu.style.color = options.getContrastColor ? options.getContrastColor(bg) : '#000';
   }
