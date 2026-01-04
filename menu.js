@@ -120,7 +120,20 @@
     menu.style.background = bg;
     menu.style.color = options.getContrastColor ? options.getContrastColor(bg) : '#000';
 
-    addMenuItem(menu, 'Index of Lists', options.callbacks.indexLink || (()=>{}));
+    // Add a New Journal action before the normal New List
+    addMenuItem(menu, 'New Journal', () => {
+      // Prompt for name, then call back into app to create a journal-type list
+      const name = window.prompt ? window.prompt('Enter new journal name:') : null;
+      if (name !== null) {
+        if (options.callbacks && typeof options.callbacks.createNewList === 'function') {
+          options.callbacks.createNewList(name, 'journal');
+        } else if (options.callbacks && typeof options.callbacks.createNew === 'function') {
+          // fallback if different callback naming
+          options.callbacks.createNew(name, 'journal');
+        }
+      }
+    });
+
     addMenuItem(menu, 'New List', options.callbacks.createNewList || (()=>{}));
     addMenuItem(menu, 'Delete List', options.callbacks.deleteCurrentList || (()=>{}));
     // separator

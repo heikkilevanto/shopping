@@ -165,28 +165,41 @@ function uncheckAll() {
   hideAppMenus();
 };
 
-// ============== Menu actions (unchanged) =================
+// ============== Menu actions (unchanged, small tweak for list type) =================
 
 // Go back to the index page
 function indexLink() {
   window.location.href = window.location.pathname;
 }
 
-function createNewList(name=null) {
+function createNewList(name=null, type='checklist') {
   // TODO - Save the current list if modified
   if (! name)
     name = prompt('Enter new list name:');
   if(!name)
     name = "NewList";
-  const newListObj = {
-    name,
-    items:[{
-      type:"section",
-      title:name,
-      collapsed:false,
-      items:[{type:"item", text:"", checked:false}]
-    }]
-  };
+
+  let newListObj;
+  if (type === 'journal') {
+    // For journal lists, start with empty items and let JournalHelper populate the year/month/day path.
+    newListObj = {
+      name,
+      type: 'journal',
+      items: []
+    };
+  } else {
+    newListObj = {
+      name,
+      type: type || 'checklist',
+      items:[{
+        type:"section",
+        title:name,
+        collapsed:false,
+        items:[{type:"item", text:"", checked:false}]
+      }]
+    };
+  }
+
   allLists.push({name});
   if (window.Menu && Menu.setAllLists) Menu.setAllLists(allLists);
   selectList(name,newListObj);
@@ -285,20 +298,37 @@ function setListFavicon(name, bgColor) {
 
 // ================= List selection =================
 function selectList(name,data){
-  // TODO Save the current list if modified
-  // Can happen while waiting for the savetimeout
-  document.title=name;
-  listName.textContent=name;
-
-  // Update URL in address bar without reloading the page
+  // Update the URL in the address bar so selection is reflected (without reloading)
   try {
     const newUrl = `${window.location.pathname}?l=${encodeURIComponent(name)}`;
     history.replaceState(null, '', newUrl);
   } catch (e) { /* ignore if history not available */ }
 
+  document.title=name;
+  listName.textContent=name;
   if(data){
     currentList=data;
-    render();
+
+    // If this is a journal list and the JournalHelper is present,
+    // ensure today's year/month/day section exists before rendering.
+    if (window.JournalHelper && currentList?.type === 'journal') {
+      try {
+        const res = JournalHelper.ensureJournalPathForDate(currentList, new Date());
+        if (res && res.createdItem) {
+          focusItem = res.createdItem;
+          render();
+          scheduleSave();
+        } else {
+          render();
+        }
+      } catch (e) {
+        console.error('JournalHelper ensure failed', e);
+        render();
+      }
+    } else {
+      render();
+    }
+
     if (window.Menu && Menu.setCurrentList) Menu.setCurrentList(currentList);
   }
   else
@@ -306,7 +336,26 @@ function selectList(name,data){
     .then(r=>r.json())
     .then(d=>{
       currentList=d;
-      render();
+
+      // ensure journal top path if needed
+      if (window.JournalHelper && currentList?.type === 'journal') {
+        try {
+          const res = JournalHelper.ensureJournalPathForDate(currentList, new Date());
+          if (res && res.createdItem) {
+            focusItem = res.createdItem;
+            render();
+            scheduleSave();
+          } else {
+            render();
+          }
+        } catch (e) {
+          console.error('JournalHelper ensure failed', e);
+          render();
+        }
+      } else {
+        render();
+      }
+
       setListFavicon(name,currentList?.bgColor || '#fff');
       if (window.Menu && Menu.setCurrentList) Menu.setCurrentList(currentList);
     });
