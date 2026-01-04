@@ -130,7 +130,10 @@ function initMenuIntegration(){
           document.body.style.color = getContrastColor(bg || '#ffffff');
           scheduleSave();
           Menu.hideMenus();
-        }
+        },
+        // New callbacks for menu:
+        toggleListType: () => toggleListType(),
+        createJournalEntryForDate: (dateStr) => createJournalEntryForDate(dateStr)
       },
       document,
       body: document.body
@@ -215,6 +218,64 @@ function deleteCurrentList() {
     indexLink();
   })
   .catch(console.error);
+}
+
+// Toggle list type between 'journal' and 'checklist'
+function toggleListType() {
+  if (!currentList) return;
+  const was = currentList.type || 'checklist';
+  const now = was === 'journal' ? 'checklist' : 'journal';
+  currentList.type = now;
+
+  // If switching to journal, ensure today's journal path exists
+  if (now === 'journal' && window.JournalHelper) {
+    try {
+      const res = JournalHelper.ensureJournalPathForDate(currentList, new Date());
+      if (res && res.createdItem) focusItem = res.createdItem;
+    } catch (e) {
+      console.error('JournalHelper ensure failed', e);
+    }
+  }
+
+  if (window.Menu && Menu.setCurrentList) Menu.setCurrentList(currentList);
+  render();
+  scheduleSave();
+}
+
+// Create a journal entry for a specific date (dateStr in YYYY-MM-DD or empty for today)
+function createJournalEntryForDate(dateStr) {
+  if (!currentList) return;
+  if ((currentList.type || 'checklist') !== 'journal') {
+    // Offer to convert
+    if (!confirm('Current list is not a journal. Convert it to a journal?')) return;
+    currentList.type = 'journal';
+  }
+  let date;
+  if (!dateStr || dateStr.trim() === '') date = new Date();
+  else {
+    // Parse a simple YYYY-MM-DD string
+    const m = dateStr.trim().match(/^(\d{4})-(\d{2})-(\d{2})$/);
+    if (!m) {
+      alert('Please enter date in YYYY-MM-DD format.');
+      return;
+    }
+    date = new Date(`${m[1]}-${m[2]}-${m[3]}T00:00:00`);
+    if (isNaN(date.getTime())) { alert('Invalid date'); return; }
+  }
+
+  if (window.JournalHelper) {
+    try {
+      const res = JournalHelper.ensureJournalPathForDate(currentList, date);
+      if (res && res.createdItem) {
+        focusItem = res.createdItem;
+      }
+      render();
+      scheduleSave();
+      if (window.Menu && Menu.setCurrentList) Menu.setCurrentList(currentList);
+    } catch (e) {
+      console.error('JournalHelper ensure failed', e);
+    }
+  }
 }
 
 // Helper to recurse through a section, and do something for each

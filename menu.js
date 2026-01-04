@@ -120,21 +120,38 @@
     menu.style.background = bg;
     menu.style.color = options.getContrastColor ? options.getContrastColor(bg) : '#000';
 
-    // Add a New Journal action before the normal New List
+    // New Journal (create a new list of type 'journal')
     addMenuItem(menu, 'New Journal', () => {
-      // Prompt for name, then call back into app to create a journal-type list
       const name = window.prompt ? window.prompt('Enter new journal name:') : null;
       if (name !== null) {
         if (options.callbacks && typeof options.callbacks.createNewList === 'function') {
           options.callbacks.createNewList(name, 'journal');
         } else if (options.callbacks && typeof options.callbacks.createNew === 'function') {
-          // fallback if different callback naming
           options.callbacks.createNew(name, 'journal');
         }
       }
     });
 
+    // New List
     addMenuItem(menu, 'New List', options.callbacks.createNewList || (()=>{}));
+
+    // Toggle Journal on current list (only visible/enabled if a list is selected)
+    addMenuItem(menu, 'Toggle Journal', () => {
+      if (options.callbacks && typeof options.callbacks.toggleListType === 'function') {
+        options.callbacks.toggleListType();
+      }
+    });
+
+    // New entry for date...
+    addMenuItem(menu, 'New entry for date...', () => {
+      const dateStr = window.prompt ? window.prompt('Enter date (YYYY-MM-DD), empty = today:') : '';
+      if (dateStr !== null) {
+        if (options.callbacks && typeof options.callbacks.createJournalEntryForDate === 'function') {
+          options.callbacks.createJournalEntryForDate(dateStr);
+        }
+      }
+    });
+
     addMenuItem(menu, 'Delete List', options.callbacks.deleteCurrentList || (()=>{}));
     // separator
     const sep=document.createElement('div');
