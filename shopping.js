@@ -131,7 +131,10 @@ function initMenuIntegration(){
           scheduleSave();
           Menu.hideMenus();
         },
-        // New callbacks for menu:
+        // New callbacks for sorting
+        sortJournal: () => sortJournal(),
+        sortSection: (section) => sortSection(section),
+        // other callbacks already present
         toggleListType: () => toggleListType(),
         createJournalEntryForDate: (dateStr) => createJournalEntryForDate(dateStr)
       },
@@ -278,6 +281,98 @@ function createJournalEntryForDate(dateStr) {
   }
 }
 
+// ============== Sorting helpers and functions for journal lists ==============
+
+// Extract a prefix of required length (4/7/10) from a title if it matches the corresponding pattern
+function getTitlePrefix(title, prefixLen) {
+  if (typeof title !== 'string') return null;
+  if (prefixLen === 4) {
+    const m = title.match(/^(\d{4})/);
+    return m ? m[1] : null;
+  } else if (prefixLen === 7) {
+    const m = title.match(/^(\d{4}-\d{2})/);
+    return m ? m[1] : null;
+  } else if (prefixLen === 10) {
+    const m = title.match(/^(\d{4}-\d{2}-\d{2})/);
+    return m ? m[1] : null;
+  }
+  return null;
+}
+
+// Reorder only the section elements in parentArray among the original section-slots,
+// leaving non-section elements in their original positions.
+function reorderSectionsInPlace(parentArray, prefixLen) {
+  if (!Array.isArray(parentArray)) return;
+  // Collect indices of section slots and their section objects
+  const sectionSlots = [];
+  for (let i = 0; i < parentArray.length; i++) {
+    if (parentArray[i] && parentArray[i].type === 'section') {
+      sectionSlots.push({ index: i, section: parentArray[i] });
+    }
+  }
+  if (sectionSlots.length <= 1) return;
+
+  // Sort sections by prefix descending (newest-first); if prefix missing, treat as smallest
+  sectionSlots.sort((a, b) => {
+    const pa = getTitlePrefix(a.section.title, prefixLen);
+    const pb = getTitlePrefix(b.section.title, prefixLen);
+    if (pa && pb) return pb.localeCompare(pa);
+    if (pa && !pb) return -1; // keep prefixed before non-prefixed
+    if (!pa && pb) return 1;
+    return 0;
+  });
+
+  // Place sorted sections back into the parentArray at their original section slot indices
+  let si = 0;
+  for (let i = 0; i < parentArray.length; i++) {
+    if (parentArray[i] && parentArray[i].type === 'section') {
+      parentArray[i] = sectionSlots[si++].section;
+    }
+  }
+}
+
+// Sort entire journal: years, months and days (sections only), newest-first
+function sortJournal() {
+  if (!currentList || !Array.isArray(currentList.items)) return;
+  // Sort year-level sections (prefixLen = 4)
+  reorderSectionsInPlace(currentList.items, 4);
+  // For each year, sort its months (prefixLen = 7)
+  currentList.items.forEach(yearSec => {
+    if (yearSec && yearSec.type === 'section' && Array.isArray(yearSec.items)) {
+      reorderSectionsInPlace(yearSec.items, 7);
+      // For each month, sort its days (prefixLen = 10)
+      yearSec.items.forEach(monthSec => {
+        if (monthSec && monthSec.type === 'section' && Array.isArray(monthSec.items)) {
+          reorderSectionsInPlace(monthSec.items, 10);
+        }
+      });
+    }
+  });
+  render();
+  scheduleSave();
+}
+
+// Sort only the immediate subsections of the provided section (determine prefix len from children)
+function sortSection(section) {
+  if (!section || !Array.isArray(section.items)) return;
+  // Decide which prefix length to use by inspecting children titles
+  let prefixLen = null;
+  for (const child of section.items) {
+    if (child && child.type === 'section') {
+      if (getTitlePrefix(child.title, 10)) { prefixLen = 10; break; }
+      if (getTitlePrefix(child.title, 7)) { prefixLen = 7; /* but keep scanning for 10 just in case */ }
+      if (!prefixLen && getTitlePrefix(child.title, 4)) prefixLen = 4;
+    }
+  }
+  if (!prefixLen) {
+    alert('No sortable subsections found in this section.');
+    return;
+  }
+  reorderSectionsInPlace(section.items, prefixLen);
+  render();
+  scheduleSave();
+}
+
 // Helper to recurse through a section, and do something for each
 // section we meet and/or each item we meet.
 // Finally render and schedule a save, if requested
@@ -296,6 +391,10 @@ function traverseSections(items, secFn = null, itFn = null, doRender=true) {
     scheduleSave();
   }
 }
+
+// ... rest of shopping.js (rendering, selection, etc.) remains the same ...
+// The file is unchanged besides the new functions above and the wiring in Menu.init.
+
 
 function expandAll() {
   traverseSections(currentList.items, sec => sec.collapsed = false);

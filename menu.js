@@ -110,6 +110,17 @@
     colorDiv.appendChild(colorLabel);
     secMenu.appendChild(colorDiv);
 
+    // If the current list is a journal, expose "Sort Section" here
+    if (currentList && currentList.type === 'journal' && options && options.callbacks && typeof options.callbacks.sortSection === 'function') {
+      const sep=document.createElement('div');
+      sep.style.borderTop='1px solid #ccc';
+      sep.style.margin='4px 0';
+      secMenu.appendChild(sep);
+      addMenuItem(secMenu, 'Sort Section', () => {
+        options.callbacks.sortSection(section);
+      });
+    }
+
     secMenu.style.background = bg;
     secMenu.style.color = options.getContrastColor ? options.getContrastColor(bg) : '#000';
   }
@@ -151,6 +162,13 @@
         }
       }
     });
+
+    // If current list is a journal, show Sort Journal
+    if (currentList && currentList.type === 'journal' && options && options.callbacks && typeof options.callbacks.sortJournal === 'function') {
+      addMenuItem(menu, 'Sort Journal', () => {
+        options.callbacks.sortJournal();
+      });
+    }
 
     addMenuItem(menu, 'Delete List', options.callbacks.deleteCurrentList || (()=>{}));
     // separator

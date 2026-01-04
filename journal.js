@@ -48,9 +48,45 @@ const JournalHelper = (function() {
   function findSectionStartingWith(parentItems, prefix) {
     if (!Array.isArray(parentItems)) return null;
     for (const s of parentItems) {
-      if (typeof s.title === 'string' && s.title.indexOf(prefix) === 0) return s;
+      if (s && s.type === 'section' && typeof s.title === 'string' && s.title.indexOf(prefix) === 0) return s;
     }
     return null;
+  }
+
+  // Extract prefix from a title using prefixLen (4,7,10). Returns the matched prefix or null.
+  function extractPrefix(title, prefixLen) {
+    if (typeof title !== 'string') return null;
+    if (prefixLen === 4) {
+      const m = title.match(/^(\d{4})/); return m ? m[1] : null;
+    } else if (prefixLen === 7) {
+      const m = title.match(/^(\d{4}-\d{2})/); return m ? m[1] : null;
+    } else if (prefixLen === 10) {
+      const m = title.match(/^(\d{4}-\d{2}-\d{2})/); return m ? m[1] : null;
+    }
+    return null;
+  }
+
+  // Insert newSection into parentItems among the section entries so that sections are
+  // ordered newest-first by their numeric prefix (prefixLen). Non-section items are left in place.
+  // Return inserted index.
+  function insertSectionByPrefix(parentItems, newSection, prefixLen, newPrefix) {
+    if (!Array.isArray(parentItems)) {
+      parentItems.push(newSection);
+      return parentItems.length - 1;
+    }
+    for (let i = 0; i < parentItems.length; i++) {
+      const it = parentItems[i];
+      if (it && it.type === 'section') {
+        const itPrefix = extractPrefix(it.title, prefixLen);
+        if (itPrefix && itPrefix < newPrefix) {
+          parentItems.splice(i, 0, newSection);
+          return i;
+        }
+      }
+    }
+    // No older section found — append at end (keeps newest-first)
+    parentItems.push(newSection);
+    return parentItems.length - 1;
   }
 
   // Create a new section object with given title and optional children (items)
@@ -64,7 +100,8 @@ const JournalHelper = (function() {
   }
 
   // Ensure year/month/day sections exist for a date inside list (list.items).
-  // Inserts at top (index 0) so newest-first order is preserved.
+  // Inserts sections in proper newest-first chronological positions among sibling sections.
+  // Ensures day section has at least one item; created day item is appended to the day.
   // Returns an object describing what was found/created and references to created structures.
   //
   // Usage:
@@ -78,36 +115,36 @@ const JournalHelper = (function() {
     const p = formatPrefixes(date, opts);
     let createdYear = false, createdMonth = false, createdDay = false, createdItem = null;
 
-    // Find or create year in list.items
+    // Find or create year in list.items (prefixLen = 4)
     let yearSection = findSectionStartingWith(list.items, p.yearPrefix);
     if (!yearSection) {
       yearSection = createSection(p.yearPrefix, []);
-      list.items.unshift(yearSection);
+      insertSectionByPrefix(list.items, yearSection, 4, p.yearPrefix);
       createdYear = true;
     }
 
-    // Find or create month in yearSection.items
+    // Find or create month in yearSection.items (prefixLen = 7)
     let monthSection = findSectionStartingWith(yearSection.items, p.monthPrefix);
     if (!monthSection) {
       monthSection = createSection(p.monthTitle, []);
-      yearSection.items.unshift(monthSection);
+      insertSectionByPrefix(yearSection.items, monthSection, 7, p.monthPrefix);
       createdMonth = true;
     }
 
-    // Find or create day in monthSection.items
+    // Find or create day in monthSection.items (prefixLen = 10)
     let daySection = findSectionStartingWith(monthSection.items, p.dayPrefix);
     if (!daySection) {
-      // day items should be text entries initially; create one empty text item at top
+      // day items should be text entries initially; create one empty text item appended to the day
       const emptyDayItem = { type: 'text', text: '' };
       daySection = createSection(p.dayTitle, [ emptyDayItem ]);
-      monthSection.items.unshift(daySection);
+      insertSectionByPrefix(monthSection.items, daySection, 10, p.dayPrefix);
       createdDay = true;
       createdItem = emptyDayItem;
     } else {
-      // Make sure the day section has at least one item; if none, add a blank text item at top
+      // Make sure the day section has at least one item; if none, add a blank text item at the end (append)
       if (!Array.isArray(daySection.items) || daySection.items.length === 0) {
         const emptyDayItem = { type: 'text', text: '' };
-        daySection.items = [ emptyDayItem ];
+        daySection.items.push(emptyDayItem);
         createdItem = emptyDayItem;
       }
     }
