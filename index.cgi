@@ -74,4 +74,6 @@ print "<script>const currentUser = '$user';</script>\n";
 scriptlink("drag.js");
 scriptlink("menu.js");
 scriptlink("journal.js");
+scriptlink("photo.js");
+
 scriptlink("shopping.js");

@@ -189,7 +189,6 @@
     menu.appendChild(sep);
 
     addMenuItem(menu, 'Uncheck All', options.callbacks.uncheckAll || (()=>{}));
-
     addMenuItem(menu, 'Expand All', options.callbacks.expandAll || (()=>{}));
     addMenuItem(menu, 'Collapse All', options.callbacks.collapseAll || (()=>{}));
     addMenuItem(menu, 'Clear All Filters', options.callbacks.clearAllFilters || (()=>{}));

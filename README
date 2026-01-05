@@ -3,15 +3,18 @@ This is a small shopping-list app (front-end + perl CGI back-end).
 History
 - Started in Sep-2025 as a lightweight alternative to cloud services.
 - Since the initial version the app gained journal support, entry-sorting for journal lists, autosave and improved touch/drag handling.
+- Jan-2026: Added photo support with dedicated photo.cgi backend and photo.js module.
 
 Overview
 - Front-end: JS app for browser, desktop webview or mobile.
-- Back-end: perl CGI (api.cgi / index.cgi) serving JSON lists and static assets.
+- Back-end: perl CGI (api.cgi / index.cgi / photo.cgi) serving JSON lists, photos, and static assets.
 
 HTTP interface
 - GET  .../shopping/                      - list available JSON files.
 - GET  .../shopping/api.cgi/shop?l=NAME  - return the JSON for list NAME.
 - POST .../shopping/api.cgi/shop?l=NAME  - create or update the JSON for list NAME.
+- POST .../shopping/photo.cgi/upload     - upload a photo (multipart/form-data), returns JSON with filename.
+- GET  .../shopping/photo.cgi/<user>/<filename> - serve an uploaded photo.
 - Static files (index.html, shopping.js, CSS, images) are served by the back-end.
 
 Data format (canonical example)
@@ -19,7 +22,7 @@ Data format (canonical example)
 
 {
   "name": "shop",
-  "journal": false,   // true for journal-type lists
+  "type": "journal",  // "journal" for date-based lists, omit for regular shopping lists
   "items": [
     { "type": "section", "title": "Meats", "collapsed": false, "items": [
       { "type": "item", "text": "Bacon", "checked": false },
@@ -27,12 +30,35 @@ Data format (canonical example)
     ]},
     { "type": "section", "title": "Vegetables", "collapsed": true, "items": [
       { "type": "item", "text": "Carrots", "checked": true },
-      { "type": "text", "text": "Remember to check the special offers" }
+      { "type": "text", "text": "Remember to check the special offers" },
+      { "type": "photo", "filename": "IMG_20260105_123456.jpg", "created": "2026-01-05T12:34:56Z" }
     ]}
   ]
 }
 
 There will be more fields later, for example dates when created and modified.
+
+Item types
+- Lines can be created by typing a single character prefix followed by Enter:
+  - 'x' or 'o' - checkbox item (checked or unchecked)
+  - '.' - plain text line (no checkbox)
+  - 's ' - section header (converts current line to section)
+  - 'p' - photo (triggers file picker/camera, uploads photo)
+
+Journals
+- Create a journal-type list via the main menu ("New Journal").
+- Journal lists automatically organize items into date-based sections (YYYY-MM-DD format).
+- Section titles show day of week, and journal entries can be sorted chronologically.
+- Use "New entry for date..." menu item to create entries for specific dates.
+- Toggle a regular list to/from journal type via the main menu ("Toggle Journal").
+
+Photos
+- Type 'p' and press Enter on any line to add a photo.
+- Photos are uploaded to photo/<user>/ on the server.
+- Photo items are stored in JSON with filename and created timestamp.
+- Photos display inline, constrained to fit the container (max-width: 100%, max-height: 90vh).
+- Click on a photo to open the full-size version in a new tab.
+- Photos are served via photo.cgi with authentication (REMOTE_USER must match).
 
 
 The UI consists of a top line with the name of the list we are working with,

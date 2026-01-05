@@ -137,7 +137,14 @@ function initMenuIntegration(){
         deleteSection: (section) => deleteSection(section),
         // other callbacks
         toggleListType: () => toggleListType(),
-        createJournalEntryForDate: (dateStr) => createJournalEntryForDate(dateStr)
+        createJournalEntryForDate: (dateStr) => createJournalEntryForDate(dateStr),
+        capturePhoto: () => {
+          if (typeof capturePhoto !== 'undefined') {
+            capturePhoto();
+          } else {
+            console.error('capturePhoto function not available');
+          }
+        }
       },
       document,
       body: document.body
@@ -641,6 +648,20 @@ function renderItem(container,item,parentItems,parentSection){
       drag.registerDragHandle(cb, { type: 'item', itemOrSection: item, parentArray: parentItems, domNode: line });
     }
   }
+  
+  // Render photo items differently - no text span, just the photo
+  if (item.type === 'photo') {
+    if (typeof renderPhotoItem !== 'undefined') {
+      renderPhotoItem(line, item);
+    }
+    // Register per-line hover and pointer handlers for showing inline drop line and accepting drops
+    if (typeof drag !== 'undefined' && drag.registerLine) {
+      drag.registerLine(line);
+    }
+    container.appendChild(line);
+    return;
+  }
+  
   const span=document.createElement('span');
   span.className='line-text';
   span.textContent=item.text;
@@ -663,6 +684,24 @@ function renderItem(container,item,parentItems,parentSection){
       } else if(text.startsWith('.')) {
         item.type='text';
         text=text.slice(2).trim();
+      } else if(text === 'p' || text === 'P'){
+        // Photo capture: remove this item, store insertion context, trigger capture
+        // insertPhotoItem will use the stored context to insert at the right place
+        const idx = parentItems.indexOf(item);
+        if (idx >= 0) {
+          parentItems.splice(idx, 1);
+        }
+        // Store insertion context for photo.js
+        if (typeof photoInsertContext !== 'undefined') {
+          photoInsertContext = { parentItems: parentItems, index: Math.max(0, idx) };
+        }
+        focusItem = parentItems[Math.max(0, idx - 1)] || null;
+        if (typeof capturePhoto !== 'undefined') {
+          capturePhoto();
+        }
+        render();
+        span.blur();
+        return;  // stop further processing
       } else if(text.startsWith('s ')){
         const idx = parentItems.indexOf(item);
         const newSection = {
@@ -904,6 +943,10 @@ if (typeof drag !== 'undefined' && drag.init) {
     scheduleSave,
     getRootItems: () => currentList ? currentList.items : []
   });
+}
+
+if (typeof initPhotoModule !== 'undefined') {
+  initPhotoModule();
 }
 
 fetch('/shopping/api.cgi/')
