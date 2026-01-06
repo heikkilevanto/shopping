@@ -10,12 +10,11 @@ let photoFileInput = null;
 let photoInsertContext = null;  // { parentItems, index }
 
 function initPhotoModule() {
-  // Create hidden file input for camera/file selection fallback
+  // Create hidden file input for camera access
   photoFileInput = document.createElement('input');
   photoFileInput.type = 'file';
   photoFileInput.accept = 'image/*';
-  // Firefox on Android: empty capture attribute opens camera directly
-  photoFileInput.setAttribute('capture', '');
+  photoFileInput.capture = 'environment';
   photoFileInput.style.display = 'none';
   document.body.appendChild(photoFileInput);
 
