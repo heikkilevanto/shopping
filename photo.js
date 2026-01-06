@@ -29,7 +29,6 @@ function initPhotoModule() {
 }
 
 function capturePhoto() {
-  console.log('capturePhoto: triggering file input');
   if (photoFileInput) {
     photoFileInput.click();
   } else {
@@ -38,8 +37,6 @@ function capturePhoto() {
 }
 
 function uploadPhoto(file) {
-  console.log('uploadPhoto: file=' + file.name + ' size=' + file.size);
-  
   const formData = new FormData();
   formData.append('photo', file, file.name);
   
@@ -48,14 +45,12 @@ function uploadPhoto(file) {
     body: formData
   })
   .then(resp => {
-    console.log('uploadPhoto: response status=' + resp.status);
     if (!resp.ok) {
       throw new Error('Upload failed: ' + resp.status + ' ' + resp.statusText);
     }
     return resp.json();
   })
   .then(data => {
-    console.log('uploadPhoto: success filename=' + data.filename + ' size=' + data.size);
     if (data.ok && data.filename) {
       insertPhotoItem(data.filename);
     } else {
@@ -69,8 +64,6 @@ function uploadPhoto(file) {
 }
 
 function insertPhotoItem(filename) {
-  console.log('insertPhotoItem: filename=' + filename);
-  
   if (!currentList) {
     console.error('insertPhotoItem: no currentList');
     return;
@@ -86,11 +79,12 @@ function insertPhotoItem(filename) {
   // Use stored insertion context if available
   let parentItems = null;
   let insertIdx = null;
+  let emptyLineItem = null;  // Save this before clearing photoInsertContext
 
   if (photoInsertContext && photoInsertContext.parentItems) {
     parentItems = photoInsertContext.parentItems;
     insertIdx = photoInsertContext.index;
-    console.log('insertPhotoItem: using stored context, index=' + insertIdx);
+    emptyLineItem = photoInsertContext.emptyLineItem;  // Save before clearing
     photoInsertContext = null;  // Clear after use
   } else if (focusItem && (focusItem.type === 'text' || focusItem.type === 'item' || focusItem.type === 'photo')) {
     // focusItem is a regular item; find its parent array and insert after it
@@ -117,8 +111,16 @@ function insertPhotoItem(filename) {
 
   console.log('insertPhotoItem: inserting at index ' + insertIdx);
   parentItems.splice(insertIdx, 0, photoItem);
-  focusItem = photoItem;
-
+  
+  // Focus the item after the photo - use the stored reference if available
+  if (emptyLineItem) {
+    focusItem = emptyLineItem;
+  } else if (parentItems[insertIdx + 1]) {
+    focusItem = parentItems[insertIdx + 1];
+  } else {
+    focusItem = photoItem;
+  }
+  
   render();
   scheduleSave();
 }

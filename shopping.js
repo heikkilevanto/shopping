@@ -685,23 +685,21 @@ function renderItem(container,item,parentItems,parentSection){
         item.type='text';
         text=text.slice(2).trim();
       } else if(text === 'p' || text === 'P'){
-        // Photo capture: remove this item, store insertion context, trigger capture
-        // insertPhotoItem will use the stored context to insert at the right place
+        // Photo capture: clear this line, store insertion context, trigger capture
         const idx = parentItems.indexOf(item);
-        if (idx >= 0) {
-          parentItems.splice(idx, 1);
-        }
-        // Store insertion context for photo.js
+        item.text = '';  // Clear the 'P' text but keep the line
+        item.type = 'text';  // Ensure it's a text line
+        // Store insertion context for photo.js - insert at current position (above this line)
         if (typeof photoInsertContext !== 'undefined') {
-          photoInsertContext = { parentItems: parentItems, index: Math.max(0, idx) };
+          photoInsertContext = { parentItems: parentItems, index: idx, emptyLineItem: item };
         }
-        focusItem = parentItems[Math.max(0, idx - 1)] || null;
         if (typeof capturePhoto !== 'undefined') {
           capturePhoto();
         }
+        focusItem = item;  // Focus stays on the cleared line
         render();
-        span.blur();
-        return;  // stop further processing
+        scheduleSave();
+        return;  // IMPORTANT: return early, do NOT create a new line
       } else if(text.startsWith('s ')){
         const idx = parentItems.indexOf(item);
         const newSection = {
@@ -880,10 +878,19 @@ function render(target){
     const titles = target.querySelectorAll('.section-header .title');
     let focused = false;
     for (const l of lines) {
-      if (l._item === focusItem) { focusEditable(l); focused = true; break; }
+      if (l._item === focusItem) { 
+        // Defer focus to next frame to let layout settle before focusing
+        requestAnimationFrame(() => {
+          focusEditable(l);
+        });
+        focused = true; 
+        break; 
+      }
     }
-    if (!focused) for (const t of titles) {
-      if (t._section === focusItem) { focusEditable(t); break; }
+    if (!focused) {
+      for (const t of titles) {
+        if (t._section === focusItem) { focusEditable(t); break; }
+      }
     }
     focusItem = null;
   }
