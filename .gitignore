@@ -1,4 +1,5 @@
 .htpasswd
 data/*
+photo/*
 *swp
 fit.log
