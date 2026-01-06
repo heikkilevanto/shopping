@@ -13,9 +13,11 @@ function initPhotoModule() {
   // Create hidden file input for camera access
   photoFileInput = document.createElement('input');
   photoFileInput.type = 'file';
+  photoFileInput.name = 'photo'; 
   photoFileInput.accept = 'image/*';
   photoFileInput.capture = 'environment';
   photoFileInput.style.display = 'none';
+  photoFileInput.value = '';
   document.body.appendChild(photoFileInput);
 
   photoFileInput.onchange = function() {

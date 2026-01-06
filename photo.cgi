@@ -133,12 +133,49 @@ elsif ($ENV{REQUEST_METHOD} eq 'GET') {
     );
     my $ctype = $ctmap{$ext} || 'application/octet-stream';
 
+    # gather file info for caching
+    my @st = stat($file_path);
+    my $size = $st[7];
+    my $mtime = $st[9];
+    my $lastmod = strftime("%a, %d %b %Y %H:%M:%S GMT", gmtime($mtime));
+    my $etag = sprintf('"%x-%x"', $size, $mtime); # strong ETag based on size-mtime
+    my $max_age = 86400; # 1 day; adjust as desired
+
+    # conditional requests: prefer ETag
+    my $if_none_match = $ENV{'HTTP_IF_NONE_MATCH'} || '';
+    if ($if_none_match ne '' && $if_none_match eq $etag) {
+        my $expires = strftime("%a, %d %b %Y %H:%M:%S GMT", gmtime(time() + $max_age));
+        print "Status: 304 Not Modified\r\n";
+        print "ETag: $etag\r\n";
+        print "Last-Modified: $lastmod\r\n";
+        print "Cache-Control: private, max-age=$max_age\r\n";
+        print "Expires: $expires\r\n\r\n";
+        exit;
+    }
+
+    my $if_modified_since = $ENV{'HTTP_IF_MODIFIED_SINCE'} || '';
+    if ($if_modified_since ne '' && $if_modified_since eq $lastmod) {
+        my $expires = strftime("%a, %d %b %Y %H:%M:%S GMT", gmtime(time() + $max_age));
+        print "Status: 304 Not Modified\r\n";
+        print "ETag: $etag\r\n";
+        print "Last-Modified: $lastmod\r\n";
+        print "Cache-Control: private, max-age=$max_age\r\n";
+        print "Expires: $expires\r\n\r\n";
+        exit;
+    }
+
     # stream file
     if (open my $fh, '<:raw', $file_path) {
         binmode $fh;
         binmode STDOUT, ":raw";  # Critical: output raw bytes for image
+        my $expires = strftime("%a, %d %b %Y %H:%M:%S GMT", gmtime(time() + $max_age));
         print "Content-Type: $ctype\r\n";
-        print "Content-Length: " . (-s $file_path) . "\r\n\r\n";
+        print "Content-Length: $size\r\n";
+        print "ETag: $etag\r\n";
+        print "Last-Modified: $lastmod\r\n";
+        print "Cache-Control: private, max-age=$max_age\r\n";
+        print "Expires: $expires\r\n";
+        print "Accept-Ranges: bytes\r\n\r\n";
         my $buf;
         while (my $n = read($fh, $buf, 8192)) {
             print $buf;
