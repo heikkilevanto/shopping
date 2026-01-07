@@ -71,6 +71,7 @@ my $user = $ENV{REMOTE_USER} // '??';
 $user = ucfirst($user);
 print "<script>const currentUser = '$user';</script>\n";
 
+scriptlink("util.js");
 scriptlink("drag.js");
 scriptlink("menu.js");
 scriptlink("journal.js");

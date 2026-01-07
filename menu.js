@@ -73,19 +73,6 @@
     element.style.color = options.getContrastColor ? options.getContrastColor(bgColor) : '#000';
   }
 
-  // Helper: Find parent section of a target section by walking the tree
-  function findParentSection(items, target, parent = null){
-    if (!Array.isArray(items)) return null;
-    for (const item of items) {
-      if (item === target) return parent;
-      if (item && item.type === 'section') {
-        const found = findParentSection(item.items, target, item);
-        if (found !== null) return found;
-      }
-    }
-    return null;
-  }
-
   // Helper: Get the effective background color for a section (walks up parent chain)
   function getEffectiveBgColor(section){
     if (!currentList) return '#ffffff';
