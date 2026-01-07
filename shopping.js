@@ -104,6 +104,138 @@ function getContrastColor(hex) {
   return lum > 186 ? '#000000' : '#ffffff'; // light bg → black, dark bg → white
 }
 
+// ============== Add-item helper UI ==============
+let addItemForm = null;
+let addItemContext = null; // { targetArray, parentSection }
+let suppressNextAddItemDocClose = false;
+
+function defaultItemTypeForCurrentList(){
+  return (currentList?.type === 'journal') ? 'text' : 'checkbox';
+}
+
+function createItemByType(t){
+  if (t === 'section') {
+    return {
+      type: 'section',
+      title: '',
+      collapsed: false,
+      items: [{ type: 'item', text: '', checked: false }],
+      filter: ''
+    };
+  }
+  if (t === 'text') return { type: 'text', text: '' };
+  return { type: 'item', text: '', checked: false };
+}
+
+function hideAddItemForm(){
+  if (!addItemForm) return;
+  addItemForm.style.display = 'none';
+  addItemContext = null;
+}
+
+function ensureAddItemForm(){
+  if (addItemForm) return addItemForm;
+  addItemForm = document.createElement('div');
+  addItemForm.className = 'add-item-form';
+  addItemForm.style.position = 'absolute';
+  addItemForm.style.zIndex = '1200';
+  addItemForm.style.padding = '8px';
+  addItemForm.style.border = '1px solid #ccc';
+  addItemForm.style.borderRadius = '6px';
+  addItemForm.style.boxShadow = '0 2px 8px rgba(0,0,0,0.2)';
+  addItemForm.style.minWidth = '180px';
+  addItemForm.onclick = e => e.stopPropagation();
+
+  const row = document.createElement('div');
+  row.style.display = 'flex';
+  row.style.alignItems = 'center';
+  row.style.gap = '6px';
+
+  const label = document.createElement('label');
+  label.textContent = 'Type:';
+  row.appendChild(label);
+
+  const select = document.createElement('select');
+  select.innerHTML = `
+    <option value="checkbox">Checkbox</option>
+    <option value="text">Text line</option>
+    <option value="section">Section</option>`;
+  row.appendChild(select);
+  addItemForm._typeSelect = select;
+
+  const buttons = document.createElement('div');
+  buttons.style.display = 'flex';
+  buttons.style.justifyContent = 'space-between';
+  buttons.style.marginTop = '8px';
+  buttons.style.gap = '6px';
+
+  const topBtn = document.createElement('button');
+  topBtn.type = 'button';
+  topBtn.textContent = 'Add to top';
+  buttons.appendChild(topBtn);
+
+  const bottomBtn = document.createElement('button');
+  bottomBtn.type = 'button';
+  bottomBtn.textContent = 'Add to bottom';
+  buttons.appendChild(bottomBtn);
+
+  const cancelBtn = document.createElement('button');
+  cancelBtn.type = 'button';
+  cancelBtn.textContent = 'Cancel';
+  buttons.appendChild(cancelBtn);
+
+  addItemForm.appendChild(row);
+  addItemForm.appendChild(buttons);
+  document.body.appendChild(addItemForm);
+
+  function handleAdd(where){
+    if (!addItemContext || !Array.isArray(addItemContext.targetArray)) return;
+    const t = addItemForm._typeSelect.value;
+    const newItem = createItemByType(t);
+    if (where === 'top') addItemContext.targetArray.unshift(newItem);
+    else addItemContext.targetArray.push(newItem);
+
+    focusItem = (t === 'section') ? newItem.items[0] : newItem;
+    hideAddItemForm();
+    render();
+    scheduleSave();
+    hideAppMenus();
+  }
+
+  topBtn.onclick = () => handleAdd('top');
+  bottomBtn.onclick = () => handleAdd('bottom');
+  cancelBtn.onclick = hideAddItemForm;
+
+  document.addEventListener('click', (e) => {
+    if (suppressNextAddItemDocClose) { suppressNextAddItemDocClose = false; return; }
+    if (addItemForm && addItemForm.style.display === 'block' && !addItemForm.contains(e.target)) hideAddItemForm();
+  });
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && addItemForm && addItemForm.style.display === 'block') hideAddItemForm();
+  });
+
+  return addItemForm;
+}
+
+function showAddItemForm(targetArray, { parentSection = null, anchor = null, defaultType = null } = {}){
+  if (!currentList || !Array.isArray(targetArray)) return;
+  const form = ensureAddItemForm();
+  addItemContext = { targetArray, parentSection };
+  suppressNextAddItemDocClose = true; // ignore the originating click (menu item)
+  const bg = parentSection?.bgColor || currentList.bgColor || '#ffffff';
+  form.style.backgroundColor = bg;
+  form.style.color = getContrastColor(bg);
+  form._typeSelect.value = defaultType || defaultItemTypeForCurrentList();
+  form.style.display = 'block';
+
+  const anchorRect = anchor ? anchor.getBoundingClientRect() : null;
+  const x = anchorRect ? anchorRect.left : 20;
+  const y = anchorRect ? anchorRect.bottom + window.scrollY + 6 : (window.scrollY + 20);
+  form.style.left = `${x}px`;
+  form.style.top = `${y}px`;
+  form._typeSelect.focus();
+}
+
 // ================= Menu integration =================
 // menu.js is included by the server-side page; we do not inject it here.
 // Initialize Menu if available; otherwise wait for window 'load' as a fallback.
@@ -138,6 +270,14 @@ function initMenuIntegration(){
         // other callbacks
         toggleListType: () => toggleListType(),
         createJournalEntryForDate: (dateStr) => createJournalEntryForDate(dateStr),
+        addItemToList: (anchor) => {
+          if (!currentList) return;
+          showAddItemForm(currentList.items, { parentSection: null, anchor: anchor || menuButton, defaultType: defaultItemTypeForCurrentList() });
+        },
+        addItemToSection: (section, anchor) => {
+          if (!section || !Array.isArray(section.items)) return;
+          showAddItemForm(section.items, { parentSection: section, anchor, defaultType: defaultItemTypeForCurrentList() });
+        },
         capturePhoto: () => {
           if (typeof capturePhoto !== 'undefined') {
             capturePhoto();

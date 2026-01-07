@@ -7,6 +7,7 @@
   let allLists = [];
   let currentList = null;
   let options = null;
+  let lastSectionAnchor = null;
 
   function createMenuElements(){
     // Main Menu dropdown
@@ -121,6 +122,13 @@
       });
     }
 
+    // Add Item...
+    if (options.callbacks && typeof options.callbacks.addItemToSection === 'function') {
+      addMenuItem(secMenu, 'Add Item...', () => {
+        options.callbacks.addItemToSection(section, lastSectionAnchor || secMenu);
+      });
+    }
+
     // Delete Section (available for all lists)
     const sepDel=document.createElement('div');
     sepDel.style.borderTop='1px solid #ccc';
@@ -156,6 +164,13 @@
 
     // New List
     addMenuItem(menu, 'New List', options.callbacks.createNewList || (()=>{}));
+
+    // Add Item to current list
+    if (currentList && options.callbacks && typeof options.callbacks.addItemToList === 'function') {
+      addMenuItem(menu, 'Add Item...', () => {
+        options.callbacks.addItemToList(options.menuButton || menu);
+      });
+    }
 
     // Toggle Journal on current list (only visible/enabled if a list is selected)
     addMenuItem(menu, 'Toggle Journal', () => {
@@ -279,6 +294,7 @@
 
   function showSectionMenu(section, anchor){
     if(!secMenu) return;
+    lastSectionAnchor = anchor || null;
     buildSectionMenuInternal(section);
     const rect = anchor.getBoundingClientRect();
     secMenu.style.left = rect.left + 'px';
