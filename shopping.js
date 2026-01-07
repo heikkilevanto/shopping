@@ -104,6 +104,36 @@ function getContrastColor(hex) {
   return lum > 186 ? '#000000' : '#ffffff'; // light bg → black, dark bg → white
 }
 
+// Helper: Find parent section of a target section by walking the tree
+function findParentSection(items, target, parent = null){
+  if (!Array.isArray(items)) return null;
+  for (const item of items) {
+    if (item === target) return parent;
+    if (item && item.type === 'section') {
+      const found = findParentSection(item.items, target, item);
+      if (found !== null) return found;
+    }
+  }
+  return null;
+}
+
+// Helper: Get the effective background color for a section (walks up parent chain)
+function getEffectiveBgColor(section){
+  if (!currentList) return '#ffffff';
+  if (!section) return currentList.bgColor || '#ffffff';
+  if (section.bgColor) return section.bgColor;
+  
+  // Walk up to find a parent with a color
+  let parent = findParentSection(currentList.items, section);
+  while (parent) {
+    if (parent.bgColor) return parent.bgColor;
+    parent = findParentSection(currentList.items, parent);
+  }
+  
+  // Fall back to list color
+  return currentList.bgColor || '#ffffff';
+}
+
 // ============== Add-item helper UI ==============
 let addItemForm = null;
 let addItemContext = null; // { targetArray, parentSection }
@@ -222,7 +252,7 @@ function showAddItemForm(targetArray, { parentSection = null, anchor = null, def
   const form = ensureAddItemForm();
   addItemContext = { targetArray, parentSection };
   suppressNextAddItemDocClose = true; // ignore the originating click (menu item)
-  const bg = parentSection?.bgColor || currentList.bgColor || '#ffffff';
+  const bg = getEffectiveBgColor(parentSection);
   form.style.backgroundColor = bg;
   form.style.color = getContrastColor(bg);
   form._typeSelect.value = defaultType || defaultItemTypeForCurrentList();
@@ -258,8 +288,7 @@ function initMenuIntegration(){
         changeCurrentBg: (bg) => {
           if (!currentList) return;
           currentList.bgColor = bg;
-          document.body.style.backgroundColor = bg || '#ffffff';
-          document.body.style.color = getContrastColor(bg || '#ffffff');
+          render();
           scheduleSave();
           Menu.hideMenus();
         },
@@ -267,6 +296,10 @@ function initMenuIntegration(){
         sortJournal: () => sortJournal(),
         sortSection: (section) => sortSection(section),
         deleteSection: (section) => deleteSection(section),
+        rerender: () => {
+          // Re-render the list to reflect changes (color, filter, collapse state)
+          render();
+        },
         // other callbacks
         toggleListType: () => toggleListType(),
         createJournalEntryForDate: (dateStr) => createJournalEntryForDate(dateStr),
