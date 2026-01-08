@@ -477,18 +477,14 @@ function reorderSectionsInPlace(parentArray, prefixLen) {
 // Sort entire journal: years, months and days (sections only), newest-first
 function sortJournal() {
   if (!currentList || !Array.isArray(currentList.items)) return;
-  // Sort year-level sections (prefixLen = 4)
-  reorderSectionsInPlace(currentList.items, 4);
-  // For each year, sort its months (prefixLen = 7)
-  currentList.items.forEach(yearSec => {
-    if (yearSec && yearSec.type === 'section' && Array.isArray(yearSec.items)) {
-      reorderSectionsInPlace(yearSec.items, 7);
-      // For each month, sort its days (prefixLen = 10)
-      yearSec.items.forEach(monthSec => {
-        if (monthSec && monthSec.type === 'section' && Array.isArray(monthSec.items)) {
-          reorderSectionsInPlace(monthSec.items, 10);
-        }
-      });
+  if (window.JournalHelper && typeof JournalHelper.flattenLegacyYears === 'function') {
+    JournalHelper.flattenLegacyYears(currentList);
+  }
+  // Sort month-level sections (prefixLen = 7) at root, then days (prefixLen = 10)
+  reorderSectionsInPlace(currentList.items, 7);
+  currentList.items.forEach(monthSec => {
+    if (monthSec && monthSec.type === 'section' && Array.isArray(monthSec.items)) {
+      reorderSectionsInPlace(monthSec.items, 10);
     }
   });
   render();

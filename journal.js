@@ -2,7 +2,9 @@
 
 // journal.js — helpers for journal-style lists (flat module)
 // Exposes global JournalHelper with functions to format prefixes and
-// ensure year/month/day sections exist (using ISO-like prefixes in titles).
+// ensure month/day sections exist (using ISO-like prefixes in titles).
+// A legacy helper can flatten old year → month → day hierarchies into the
+// new month → day layout.
 //
 // Matching uses title.startsWith(prefix) so the user may append arbitrary
 // human text after the numeric prefix, e.g. "2025-12-24 Xmas Eve".
@@ -99,7 +101,7 @@ const JournalHelper = (function() {
     };
   }
 
-  // Ensure year/month/day sections exist for a date inside list (list.items).
+  // Ensure month/day sections exist for a date inside list (list.items).
   // Inserts sections in proper newest-first chronological positions among sibling sections.
   // Ensures day section has at least one item; created day item is appended to the day.
   // Returns an object describing what was found/created and references to created structures.
@@ -112,22 +114,15 @@ const JournalHelper = (function() {
     if (!list || !Array.isArray(list.items)) {
       return { created: false };
     }
+
     const p = formatPrefixes(date, opts);
-    let createdYear = false, createdMonth = false, createdDay = false, createdItem = null;
+    let createdMonth = false, createdDay = false, createdItem = null;
 
-    // Find or create year in list.items (prefixLen = 4)
-    let yearSection = findSectionStartingWith(list.items, p.yearPrefix);
-    if (!yearSection) {
-      yearSection = createSection(p.yearPrefix, []);
-      insertSectionByPrefix(list.items, yearSection, 4, p.yearPrefix);
-      createdYear = true;
-    }
-
-    // Find or create month in yearSection.items (prefixLen = 7)
-    let monthSection = findSectionStartingWith(yearSection.items, p.monthPrefix);
+    // Find or create month directly under the list (prefixLen = 7)
+    let monthSection = findSectionStartingWith(list.items, p.monthPrefix);
     if (!monthSection) {
       monthSection = createSection(p.monthTitle, []);
-      insertSectionByPrefix(yearSection.items, monthSection, 7, p.monthPrefix);
+      insertSectionByPrefix(list.items, monthSection, 7, p.monthPrefix);
       createdMonth = true;
     }
 
@@ -150,18 +145,48 @@ const JournalHelper = (function() {
     }
 
     return {
-      created: createdYear || createdMonth || createdDay,
-      createdYear, createdMonth, createdDay,
-      yearSection, monthSection, daySection,
+      created: createdMonth || createdDay,
+      createdYear: false,
+      createdMonth, createdDay,
+      yearSection: null,
+      monthSection, daySection,
       createdItem
     };
+  }
+
+  // Flatten legacy year → month → day hierarchy into month → day at the list root.
+  // Returns true if changes were made.
+  function flattenLegacyYears(list) {
+    if (!list || !Array.isArray(list.items) || list.items.length === 0) return false;
+
+    let changed = false;
+    const newItems = [];
+
+    for (const entry of list.items) {
+      const isYearSection = entry && entry.type === 'section' && extractPrefix(entry.title, 4);
+      if (isYearSection && Array.isArray(entry.items)) {
+        // Move its children (months/days) up one level
+        for (const child of entry.items) {
+          newItems.push(child);
+        }
+        changed = true;
+      } else {
+        newItems.push(entry);
+      }
+    }
+
+    if (changed) {
+      list.items = newItems;
+    }
+    return changed;
   }
 
   // Public API
   return {
     formatPrefixes,
     findSectionStartingWith,
-    ensureJournalPathForDate
+    ensureJournalPathForDate,
+    flattenLegacyYears
   };
 })();
 
