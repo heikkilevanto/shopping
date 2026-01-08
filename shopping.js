@@ -687,10 +687,20 @@ function renderItem(container,item,parentItems,parentSection){
     if (typeof drag !== 'undefined' && drag.registerDragHandle) {
       drag.registerDragHandle(cb, { type: 'item', itemOrSection: item, parentArray: parentItems, domNode: line });
     }
-  }
-  
-  // Render photo items differently - no text span, just the photo
-  if (item.type === 'photo') {
+  } else if (item.type === 'photo') {
+    // Render photo items with camera icon as drag handle
+    const bullet = document.createElement('span');
+    bullet.textContent = '📷';
+    bullet.style.cursor = 'grab';
+    bullet.style.marginRight = '0.3em';
+    bullet.style.userSelect = 'none';
+    line.appendChild(bullet);
+
+    // Register the bullet as the drag handle for photos
+    if (typeof drag !== 'undefined' && drag.registerDragHandle) {
+      drag.registerDragHandle(bullet, { type: 'item', itemOrSection: item, parentArray: parentItems, domNode: line });
+    }
+
     if (typeof renderPhotoItem !== 'undefined') {
       renderPhotoItem(line, item);
     }
@@ -700,6 +710,19 @@ function renderItem(container,item,parentItems,parentSection){
     }
     container.appendChild(line);
     return;
+  } else {
+    // For text items, add a bullet point as drag handle
+    const bullet = document.createElement('span');
+    bullet.textContent = '•';
+    bullet.style.cursor = 'grab';
+    bullet.style.marginRight = '0.3em';
+    bullet.style.userSelect = 'none';
+    line.appendChild(bullet);
+
+    // Register the bullet as the drag handle for text items
+    if (typeof drag !== 'undefined' && drag.registerDragHandle) {
+      drag.registerDragHandle(bullet, { type: 'item', itemOrSection: item, parentArray: parentItems, domNode: line });
+    }
   }
   
   const span=document.createElement('span');
@@ -777,6 +800,10 @@ function renderItem(container,item,parentItems,parentSection){
     item.text=currentText;
     scheduleSave();
   };
+  // Prevent native drag-drop into contentEditable text (use custom drag system only)
+  span.ondragover = e => e.preventDefault();
+  span.ondrop = e => e.preventDefault();
+  
   line.appendChild(span);
 
   // Register per-line hover and pointer handlers for showing inline drop line and accepting drops
