@@ -23,6 +23,18 @@ my $fullfile = "$file.json";
 
 print STDERR "Shopping list: u='$username' f='$file' \n";
 
+my $cgi = CGI->new;
+my $limit_param = $cgi->param('limit');
+my $limit = undef;
+if (defined $limit_param) {
+  # sanitize: numeric and reasonable bounds
+  if ($limit_param =~ /^(\d{1,3})$/) {
+    $limit = $1 + 0;
+    $limit = 1 if $limit < 1;
+    $limit = 100 if $limit > 100;
+  }
+}
+
 if ($ENV{REQUEST_METHOD} eq 'GET' && ($path_info eq '' || $path_info eq '/') ) {# List available files
       my $userdir = "$base_dir/$username";
       error(404,"User dir not found", $userdir)
@@ -32,6 +44,9 @@ if ($ENV{REQUEST_METHOD} eq 'GET' && ($path_info eq '' || $path_info eq '/') ) {
       chomp($flist);
       print STDERR "Got flist: '$flist' \n";
       my @files = split(/\n/, $flist);
+      if (defined $limit) {
+        @files = @files[0 .. ($limit-1)] if scalar(@files) > $limit;
+      }
       if (@files) {
         s/([^.]+)\.json/"$1"/ for @files;
         print "Content-Type: application/json\r\n\r\n";

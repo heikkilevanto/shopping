@@ -27,9 +27,9 @@ titleContainer.style.alignItems = 'center';
 titleContainer.style.gap = '0.5em';
 titleContainer.style.position = 'sticky';
 titleContainer.style.top = '0';
-titleContainer.style.backgroundColor = '#fff';
 titleContainer.style.zIndex = '100';
 titleContainer.style.padding = '0.5em 0';
+// Background and text color are applied dynamically in render()
 appContainer.appendChild(titleContainer);
 
 const menuButton = document.createElement('button');
@@ -153,12 +153,23 @@ function ensureAddItemForm(){
   row.appendChild(label);
 
   const select = document.createElement('select');
-  select.innerHTML = `
-    <option value="checkbox">Checkbox</option>
-    <option value="text">Text line</option>
-    <option value="section">Section</option>`;
+  // Options populated dynamically in showAddItemForm based on current list type
   row.appendChild(select);
   addItemForm._typeSelect = select;
+
+  // Date input row (shown only for Journal Entry)
+  const dateRow = document.createElement('div');
+  dateRow.style.display = 'none';
+  dateRow.style.alignItems = 'center';
+  dateRow.style.gap = '6px';
+  const dateLabel = document.createElement('label');
+  dateLabel.textContent = 'Date:';
+  const dateInput = document.createElement('input');
+  dateInput.type = 'date';
+  dateLabel.appendChild(dateInput);
+  dateRow.appendChild(dateLabel);
+  addItemForm._dateRow = dateRow;
+  addItemForm._dateInput = dateInput;
 
   const buttons = document.createElement('div');
   buttons.style.display = 'flex';
@@ -181,9 +192,26 @@ function ensureAddItemForm(){
   cancelBtn.textContent = 'Cancel';
   buttons.appendChild(cancelBtn);
 
+  // Single Add button (used for Journal Entry mode)
+  const addBtn = document.createElement('button');
+  addBtn.type = 'button';
+  addBtn.textContent = 'Add';
+  addBtn.style.display = 'none';
+  addItemForm._addBtn = addBtn;
+  buttons.appendChild(addBtn);
+
   addItemForm.appendChild(row);
+  addItemForm.appendChild(dateRow);
   addItemForm.appendChild(buttons);
   document.body.appendChild(addItemForm);
+
+  function todayStr(){
+    const d = new Date();
+    const y = d.getFullYear();
+    const m = String(d.getMonth()+1).padStart(2,'0');
+    const da = String(d.getDate()).padStart(2,'0');
+    return `${y}-${m}-${da}`;
+  }
 
   function handleAdd(where){
     if (!addItemContext || !Array.isArray(addItemContext.targetArray)) return;
@@ -202,6 +230,31 @@ function ensureAddItemForm(){
   topBtn.onclick = () => handleAdd('top');
   bottomBtn.onclick = () => handleAdd('bottom');
   cancelBtn.onclick = hideAddItemForm;
+
+  // Add handler for Journal Entry mode
+  addBtn.onclick = () => {
+    const val = addItemForm._typeSelect.value;
+    if (val === 'journal-entry') {
+      const dateStr = addItemForm._dateInput.value.trim();
+      createJournalEntryForDate(dateStr);
+      hideAddItemForm();
+      hideAppMenus();
+    }
+  };
+
+  // Toggle button visibility based on selected type
+  function updateButtonsMode(){
+    const val = addItemForm._typeSelect.value;
+    const isJournal = (val === 'journal-entry');
+    addItemForm._dateRow.style.display = isJournal ? 'flex' : 'none';
+    topBtn.style.display = isJournal ? 'none' : '';
+    bottomBtn.style.display = isJournal ? 'none' : '';
+    addBtn.style.display = isJournal ? '' : 'none';
+    if (isJournal && !addItemForm._dateInput.value) {
+      addItemForm._dateInput.value = todayStr();
+    }
+  }
+  select.onchange = updateButtonsMode;
 
   document.addEventListener('click', (e) => {
     if (suppressNextAddItemDocClose) { suppressNextAddItemDocClose = false; return; }
@@ -222,7 +275,26 @@ function showAddItemForm(targetArray, { parentSection = null, anchor = null, def
   const bg = getEffectiveBgColor(parentSection);
   form.style.backgroundColor = bg;
   form.style.color = getContrastColor(bg);
-  form._typeSelect.value = defaultType || defaultItemTypeForCurrentList();
+  // Populate type options depending on current list
+  const isJournal = (currentList?.type === 'journal');
+  const sel = form._typeSelect;
+  sel.innerHTML = '';
+  const opts = [
+    { v: 'checkbox', t: 'Checkbox' },
+    { v: 'text', t: 'Text line' },
+    { v: 'section', t: 'Section' }
+  ];
+  if (isJournal) opts.push({ v: 'journal-entry', t: 'Journal Entry' });
+  for (const o of opts){
+    const opt = document.createElement('option');
+    opt.value = o.v; opt.textContent = o.t;
+    sel.appendChild(opt);
+  }
+  sel.value = defaultType || defaultItemTypeForCurrentList();
+  // Reset date input if switching contexts
+  form._dateInput.value = '';
+  // Apply button visibility mode
+  const updateEvt = new Event('change'); sel.dispatchEvent(updateEvt);
   form.style.display = 'block';
 
   const anchorRect = anchor ? anchor.getBoundingClientRect() : null;
@@ -361,7 +433,8 @@ function createNewList(name=null, type='checklist') {
 }
 
 function deleteCurrentList() {
-  if(!confirm(`Delete list "${currentList.name}"?`)) return;
+  const typeWord = (currentList?.type === 'journal') ? 'journal' : 'list';
+  if(!confirm(`Delete ${typeWord} "${currentList.name}"?`)) return;
   fetch(`/shopping/api.cgi/${currentList.name}`,{method:'DELETE'})
   .then ( data => {
     allLists = allLists.filter(l=>l.name!==currentList.name);
@@ -939,6 +1012,11 @@ function render(target){
   if (!target) {
     document.body.style.backgroundColor = currentList.bgColor || '#ffffff';
     document.body.style.color = getContrastColor(currentList.bgColor || '#ffffff');
+    // Keep the top line matching the list background and contrast
+    if (titleContainer) {
+      titleContainer.style.backgroundColor = currentList.bgColor || '#ffffff';
+      titleContainer.style.color = getContrastColor(currentList.bgColor || '#ffffff');
+    }
     target = container;
   } else {
     target.style.backgroundColor = currentList.bgColor || '#ffffff';
@@ -1028,7 +1106,8 @@ if (typeof initPhotoModule !== 'undefined') {
   initPhotoModule();
 }
 
-fetch('/shopping/api.cgi/')
+// Ask API for a limited set of recent lists to minimize payload
+fetch('/shopping/api.cgi/?limit=5')
   .then(r=>r.json())
   .then(data=>{
     allLists = data.map(name=>({name}));

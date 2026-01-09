@@ -3,7 +3,7 @@
 
 (function(window, document){
   const doc = document;
-  let menu, secMenu;
+  let menu, secMenu, subMenu;
   let allLists = [];
   let currentList = null;
   let options = null;
@@ -99,6 +99,11 @@
     const bg = currentList?.bgColor || '#fff';
     applyMenuColors(secMenu, bg);
     document.body.appendChild(secMenu);
+
+    // Generic submenu (used for New, View, Filters, Settings)
+    subMenu = createStyledMenu();
+    applyMenuColors(subMenu, bg);
+    document.body.appendChild(subMenu);
   }
 
   function addMenuItem(menuEl, text, onClick){
@@ -176,13 +181,29 @@
     applyMenuColors(secMenu, effectiveBg);
   }
 
+  function addMenuHeader(menuEl, text){
+    const header = document.createElement('div');
+    header.textContent = text;
+    header.style.padding = '6px 12px 2px 12px';
+    header.style.fontWeight = 'bold';
+    header.style.fontSize = '0.85em';
+    header.style.color = '#666';
+    header.style.textTransform = 'uppercase';
+    header.style.letterSpacing = '0.5px';
+    menuEl.appendChild(header);
+  }
+
   function buildMenuInternal(){
     menu.innerHTML='';
     const bg = currentList?.bgColor || '#ffffff';
     applyMenuColors(menu, bg);
 
-    // New Journal (create a new list of type 'journal')
-    addMenuItem(menu, 'New Journal', () => {
+    // ===== CREATE SECTION =====
+    addMenuHeader(menu, 'Create');
+    
+    addMenuItem(menu, '+ New List', options.callbacks.createNewList || (()=>{}));
+    
+    addMenuItem(menu, '+ New Journal', () => {
       const name = window.prompt ? window.prompt('Enter new journal name:') : null;
       if (name !== null) {
         if (options.callbacks && typeof options.callbacks.createNewList === 'function') {
@@ -193,72 +214,90 @@
       }
     });
 
-    // New List
-    addMenuItem(menu, 'New List', options.callbacks.createNewList || (()=>{}));
-
-    // Add Item to current list
-    if (currentList && options.callbacks && typeof options.callbacks.addItemToList === 'function') {
-      addMenuItem(menu, 'Add Item...', () => {
-        options.callbacks.addItemToList(options.menuButton || menu);
-      });
-    }
-
-    // Toggle Journal on current list (only visible/enabled if a list is selected)
-    addMenuItem(menu, 'Toggle Journal', () => {
-      if (options.callbacks && typeof options.callbacks.toggleListType === 'function') {
-        options.callbacks.toggleListType();
+    // Only show current list actions if there's a current list
+    if (currentList) {
+      menu.appendChild(createSeparator());
+      
+      // ===== CURRENT LIST SECTION =====
+      addMenuHeader(menu, currentList.name);
+      
+      // Add Item to current list
+      if (options.callbacks && typeof options.callbacks.addItemToList === 'function') {
+        addMenuItem(menu, '+ Add Item...', () => {
+          options.callbacks.addItemToList(options.menuButton || menu);
+        });
       }
-    });
 
-    // New entry for date...
-    addMenuItem(menu, 'New entry for date...', () => {
-      const dateStr = window.prompt ? window.prompt('Enter date (YYYY-MM-DD), empty = today:') : '';
-      if (dateStr !== null) {
-        if (options.callbacks && typeof options.callbacks.createJournalEntryForDate === 'function') {
-          options.callbacks.createJournalEntryForDate(dateStr);
+      // Journal-specific actions
+      if (currentList.type === 'journal') {
+        addMenuItem(menu, '+ New Entry for Date...', () => {
+          const dateStr = window.prompt ? window.prompt('Enter date (YYYY-MM-DD), empty = today:') : '';
+          if (dateStr !== null) {
+            if (options.callbacks && typeof options.callbacks.createJournalEntryForDate === 'function') {
+              options.callbacks.createJournalEntryForDate(dateStr);
+            }
+          }
+        });
+        
+        if (options && options.callbacks && typeof options.callbacks.sortJournal === 'function') {
+          addMenuItem(menu, '↕ Sort Journal', () => {
+            options.callbacks.sortJournal();
+          });
         }
       }
-    });
 
-    // If current list is a journal, show Sort Journal
-    if (currentList && currentList.type === 'journal' && options && options.callbacks && typeof options.callbacks.sortJournal === 'function') {
-      addMenuItem(menu, 'Sort Journal', () => {
-        options.callbacks.sortJournal();
+      addMenuItem(menu, '↔ Toggle Journal Mode', () => {
+        if (options.callbacks && typeof options.callbacks.toggleListType === 'function') {
+          options.callbacks.toggleListType();
+        }
       });
+
+      // Color picker
+      createColorPicker(menu, 'Background: ', currentList.bgColor || '#ffffff', (val) => {
+        if (options.callbacks.changeCurrentBg) options.callbacks.changeCurrentBg(val);
+      });
+
+      // Global filter
+      createFilterButtons(menu, ['checked','unchecked','none'], currentList.filter || 'all', (f) => {
+        currentList.filter = f === 'none' ? '' : f;
+        options.callbacks.scheduleSave && options.callbacks.scheduleSave();
+        options.callbacks.selectList && options.callbacks.selectList(currentList.name);
+        hideMenus();
+      });
+
+      menu.appendChild(createSeparator());
+
+      // ===== BULK ACTIONS SECTION =====
+      addMenuHeader(menu, 'Bulk Actions');
+      
+      addMenuItem(menu, '☐ Uncheck All', options.callbacks.uncheckAll || (()=>{}));
+      addMenuItem(menu, '▼ Expand All', options.callbacks.expandAll || (()=>{}));
+      addMenuItem(menu, '▶ Collapse All', options.callbacks.collapseAll || (()=>{}));
+      addMenuItem(menu, '⊗ Clear All Filters', options.callbacks.clearAllFilters || (()=>{}));
+
+      menu.appendChild(createSeparator());
+
+      // ===== DANGER ZONE =====
+      addMenuItem(menu, '🗑 Delete This List', options.callbacks.deleteCurrentList || (()=>{}));
     }
 
-    addMenuItem(menu, 'Delete List', options.callbacks.deleteCurrentList || (()=>{}));
     menu.appendChild(createSeparator());
 
-    addMenuItem(menu, 'Uncheck All', options.callbacks.uncheckAll || (()=>{}));
-    addMenuItem(menu, 'Expand All', options.callbacks.expandAll || (()=>{}));
-    addMenuItem(menu, 'Collapse All', options.callbacks.collapseAll || (()=>{}));
-    addMenuItem(menu, 'Clear All Filters', options.callbacks.clearAllFilters || (()=>{}));
-
-    // Global filter
-    createFilterButtons(menu, ['checked','unchecked','none'], currentList?.filter || 'all', (f) => {
-      if (!currentList) return;
-      currentList.filter = f === 'none' ? '' : f;
-      options.callbacks.scheduleSave && options.callbacks.scheduleSave();
-      options.callbacks.selectList && options.callbacks.selectList(currentList.name);
-      hideMenus();
-    });
-
-    // Color picker
-    createColorPicker(menu, 'Background: ', currentList?.bgColor || '#ffffff', (val) => {
-      if (options.callbacks.changeCurrentBg) options.callbacks.changeCurrentBg(val);
-    });
-
-    menu.appendChild(createSeparator());
-
+    // ===== SWITCH TO SECTION =====
+    addMenuHeader(menu, 'Switch to List');
+    
     // list entries
     allLists.forEach(lst=>{
       const a = document.createElement('a');
-      a.textContent = lst.name;
+      const prefix = lst.name === currentList?.name ? '• ' : '  ';
+      a.textContent = prefix + lst.name;
       a.href = `?l=${encodeURIComponent(lst.name)}`;
       a.style.display = 'block';
       a.style.padding = '4px 12px';
       a.style.cursor = 'pointer';
+      if (lst.name === currentList?.name) {
+        a.style.fontWeight = 'bold';
+      }
       a.onclick = (e) => { e.preventDefault(); hideMenus(); options.callbacks.selectList && options.callbacks.selectList(lst.name); };
       menu.appendChild(a);
     });
@@ -268,6 +307,7 @@
     if (menu) menu.style.display = 'none';
     if (options && options.menuButton) options.menuButton.setAttribute('aria-expanded','false');
     if (secMenu) secMenu.style.display = 'none';
+    if (subMenu) subMenu.style.display = 'none';
   }
 
   function rebuildOpenMenus(){
@@ -275,6 +315,9 @@
     if (secMenu && secMenu.style.display === 'block') {
       // if we had a section open, rebuild it (we don't track which one here; the app will re-show)
       secMenu.style.display='none';
+    }
+    if (subMenu && subMenu.style.display === 'block') {
+      subMenu.style.display = 'none';
     }
   }
 
@@ -301,17 +344,168 @@
   // global click/key handlers
   function onDocumentClick(e){
     if (!options) return;
-    if (menu && !menu.contains(e.target) && e.target !== options.menuButton) hideMenus();
-    if (secMenu && !secMenu.contains(e.target)) hideMenus();
+    const clickedOutsideMain = menu && !menu.contains(e.target) && e.target !== options.menuButton;
+    const clickedOutsideSec = secMenu && !secMenu.contains(e.target);
+    const clickedOutsideSub = subMenu && !subMenu.contains(e.target);
+    if (clickedOutsideMain && clickedOutsideSec && clickedOutsideSub) hideMenus();
   }
   function onDocumentKey(e){ if (e.key === 'Escape') hideMenus(); }
+
+  // Helper: add a trigger item that opens a submenu anchored to this item
+  function addTrigger(menuEl, text, buildFn){
+    const div = document.createElement('div');
+    div.textContent = text;
+    div.style.padding = '4px 12px';
+    div.style.cursor = 'pointer';
+    div.onmouseover = () => div.style.background = '#eee';
+    div.onmouseout = () => div.style.background = '';
+    div.onclick = () => {
+      showSubmenuAt(div, buildFn);
+    };
+    menuEl.appendChild(div);
+    return div;
+  }
+
+  // Show generic submenu at anchor element and build its content via buildFn(subMenu)
+  function showSubmenuAt(anchor, buildFn){
+    if (!subMenu) return;
+    subMenu.innerHTML = '';
+    const bg = currentList?.bgColor || '#ffffff';
+    applyMenuColors(subMenu, bg);
+    buildFn(subMenu);
+    const rect = anchor.getBoundingClientRect();
+    subMenu.style.left = rect.left + 'px';
+    subMenu.style.top = (rect.bottom + window.scrollY + 4) + 'px';
+    subMenu.style.display = 'block';
+  }
+
+  function buildMenuInternal(){
+    menu.innerHTML='';
+    const bg = currentList?.bgColor || '#ffffff';
+    applyMenuColors(menu, bg);
+
+    // New… submenu
+    addTrigger(menu, 'New…', (sm) => {
+      addMenuItem(sm, 'List', options.callbacks.createNewList || (()=>{}));
+      addMenuItem(sm, 'Journal', () => {
+        const name = window.prompt ? window.prompt('Enter new journal name:') : null;
+        if (name !== null) {
+          if (options.callbacks && typeof options.callbacks.createNewList === 'function') {
+            options.callbacks.createNewList(name, 'journal');
+          } else if (options.callbacks && typeof options.callbacks.createNew === 'function') {
+            options.callbacks.createNew(name, 'journal');
+          }
+        }
+      });
+    });
+
+    // Add to … opens add-item dialog directly
+    if (currentList && options.callbacks && typeof options.callbacks.addItemToList === 'function') {
+      addMenuItem(menu, `Add to ${currentList.name}…`, () => {
+        options.callbacks.addItemToList(options.menuButton || menu);
+      });
+    }
+
+    // View… submenu
+    addTrigger(menu, 'View…', (sm) => {
+      addMenuItem(sm, 'Expand All', options.callbacks.expandAll || (()=>{}));
+      addMenuItem(sm, 'Collapse All', options.callbacks.collapseAll || (()=>{}));
+    });
+
+    // Filters… submenu (includes Inherit/None)
+    addTrigger(menu, 'Filters…', (sm) => {
+      const setFilter = (val) => {
+        if (!currentList) return;
+        currentList.filter = val;
+        options.callbacks.scheduleSave && options.callbacks.scheduleSave();
+        options.callbacks.selectList && options.callbacks.selectList(currentList.name);
+        hideMenus();
+      };
+      addMenuItem(sm, 'Show All', () => setFilter('all'));
+      addMenuItem(sm, 'Checked', () => setFilter('checked'));
+      addMenuItem(sm, 'Unchecked', () => setFilter('unchecked'));
+      addMenuItem(sm, 'Inherit (None)', () => setFilter(''));
+      sm.appendChild(createSeparator());
+      addMenuItem(sm, 'Clear All Filters', options.callbacks.clearAllFilters || (()=>{}));
+    });
+
+    // Settings… submenu
+    addTrigger(menu, 'Settings…', (sm) => {
+      // Background color picker
+      createColorPicker(sm, 'Background: ', currentList?.bgColor || '#ffffff', (val) => {
+        if (options.callbacks.changeCurrentBg) options.callbacks.changeCurrentBg(val);
+      });
+      // Toggle journal mode
+      addMenuItem(sm, 'Toggle Journal Mode', () => {
+        if (options.callbacks && typeof options.callbacks.toggleListType === 'function') {
+          options.callbacks.toggleListType();
+        }
+      });
+      // Uncheck all moved to Settings
+      addMenuItem(sm, 'Uncheck All', options.callbacks.uncheckAll || (()=>{}));
+      // Delete action with type + name
+      if (currentList) {
+        const typeWord = (currentList.type === 'journal') ? 'Journal' : 'List';
+        addMenuItem(sm, `Delete ${typeWord} "${currentList.name}"`, options.callbacks.deleteCurrentList || (()=>{}));
+      }
+    });
+
+    menu.appendChild(createSeparator());
+
+    // Recent lists (API decides count) and All Lists…
+    const recent = (allLists || []);
+    recent.forEach(lst=>{
+      const a = document.createElement('a');
+      const prefix = lst.name === currentList?.name ? '• ' : '';
+      a.textContent = prefix + lst.name;
+      a.href = `?l=${encodeURIComponent(lst.name)}`;
+      a.style.display = 'block';
+      a.style.padding = '4px 12px';
+      a.style.cursor = 'pointer';
+      if (lst.name === currentList?.name) {
+        a.style.fontWeight = 'bold';
+      }
+      a.onclick = (e) => { e.preventDefault(); hideMenus(); options.callbacks.selectList && options.callbacks.selectList(lst.name); };
+      menu.appendChild(a);
+    });
+
+    // Link to index page
+    const allLink = document.createElement('div');
+    allLink.textContent = 'All Lists…';
+    allLink.style.padding = '4px 12px';
+    allLink.style.cursor = 'pointer';
+    allLink.onmouseover = () => allLink.style.background = '#eee';
+    allLink.onmouseout = () => allLink.style.background = '';
+    allLink.onclick = () => { hideMenus(); options.callbacks.indexLink && options.callbacks.indexLink(); };
+    menu.appendChild(allLink);
+  }
+
+  function showMainMenu(){
+    if (!menu) return;
+    buildMenuInternal();
+    const rect = options.menuButton.getBoundingClientRect();
+    menu.style.left = rect.left + 'px';
+    menu.style.top = (rect.bottom + 6 + window.scrollY) + 'px';
+    menu.style.display='block';
+    options.menuButton.setAttribute('aria-expanded','true');
+  }
+
+  function showSectionMenu(section, anchor){
+    if(!secMenu) return;
+    lastSectionAnchor = anchor || null;
+    buildSectionMenuInternal(section);
+    const rect = anchor.getBoundingClientRect();
+    secMenu.style.left = rect.left + 'px';
+    secMenu.style.top = (rect.bottom + window.scrollY + 4) + 'px';
+    secMenu.style.display = 'block';
+  }
 
   const Menu = {
     init(opts){
       options = opts || {};
       if (!options.getContrastColor) options.getContrastColor = (hex) => '#000';
       if (!options.menuButton) console.warn('Menu.init: menuButton not provided');
-      if (!menu || !secMenu) createMenuElements();
+      if (!menu || !secMenu || !subMenu) createMenuElements();
 
       // attach the menu button handler
       options.menuButton.onclick = (e) => {
