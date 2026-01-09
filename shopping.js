@@ -25,6 +25,11 @@ const titleContainer = document.createElement('div');
 titleContainer.style.display = 'flex';
 titleContainer.style.alignItems = 'center';
 titleContainer.style.gap = '0.5em';
+titleContainer.style.position = 'sticky';
+titleContainer.style.top = '0';
+titleContainer.style.backgroundColor = '#fff';
+titleContainer.style.zIndex = '100';
+titleContainer.style.padding = '0.5em 0';
 appContainer.appendChild(titleContainer);
 
 const menuButton = document.createElement('button');
