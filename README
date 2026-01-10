@@ -2,7 +2,7 @@ This is a small shopping-list app (front-end + perl CGI back-end).
 
 History
 - Started in Sep-2025 as a lightweight alternative to cloud services.
-- Since the initial version the app gained journal support, entry-sorting for journal lists, autosave and improved touch/drag handling.
+- Since the initial version the app gained journal support, sorting for journal lists, autosave and improved touch/drag handling.
 - Jan-2026: Added photo support with dedicated photo.cgi backend and photo.js module.
 
 Overview
@@ -47,10 +47,10 @@ Item types
 
 Journals
 - Create a journal-type list via the main menu ("New Journal").
-- Journal lists automatically organize items into date-based sections (YYYY-MM-DD format).
-- Section titles show day of week, and journal entries can be sorted chronologically.
-- Use "New entry for date..." menu item to create entries for specific dates.
+- Journal lists organize entries into Month sections (YYYY-MM) which contain Day sections (YYYY-MM-DD). Entries live inside their day sections.
+- Section titles show day of week. Use "New entry for date..." to create entries for specific dates.
 - Toggle a regular list to/from journal type via the main menu ("Toggle Journal").
+- Sorting: "Sort Journal" preserves the month → day hierarchy. It sorts month blocks by newest first and, inside each month, sorts day sections by newest first. Non-date blocks and loose items at the top or bottom are ignored and remain in place.
 
 Photos
 - Type 'p' and press Enter on any line to add a photo.
@@ -87,3 +87,7 @@ system gets confused which gestures are for the app and which for the browser
 itself. F.ex. dragging down will want to refresh the page, no matter what.
 
 There is an example apache config under etc, adjust as needed.
+
+Menu overview
+- View: contains Expand All, Collapse All, and Filters (Show All, Checked, Unchecked, Inherit/None, Clear All Filters).
+- Settings: contains Background color, Toggle Journal Mode, Uncheck All, Delete This List; when the current list is a journal, it also shows Sort Journal.
