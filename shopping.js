@@ -1123,7 +1123,6 @@ window.addEventListener('focus', () => {
   .then(r => {
     if (r.status === 304) {
       // Not modified, nothing to do
-      console.log('List not modified on server.');
       return null;
     }
     if (r.ok) {

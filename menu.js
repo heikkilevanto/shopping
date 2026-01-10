@@ -285,12 +285,12 @@
 
     // ===== SWITCH TO SECTION =====
     addMenuHeader(menu, 'Switch to List');
+    const switchLists = (allLists || []).filter(lst => !currentList || lst.name !== currentList.name);
     
-    // list entries
-    allLists.forEach(lst=>{
+    // list entries (exclude current list)
+    switchLists.forEach(lst=>{
       const a = document.createElement('a');
-      const prefix = lst.name === currentList?.name ? '• ' : '  ';
-      a.textContent = prefix + lst.name;
+      a.textContent = lst.name;
       a.href = `?l=${encodeURIComponent(lst.name)}`;
       a.style.display = 'block';
       a.style.padding = '4px 12px';
@@ -298,7 +298,8 @@
       if (lst.name === currentList?.name) {
         a.style.fontWeight = 'bold';
       }
-      a.onclick = (e) => { e.preventDefault(); hideMenus(); options.callbacks.selectList && options.callbacks.selectList(lst.name); };
+      // Allow natural navigation so the list reloads fully
+      a.onclick = () => hideMenus();
       menu.appendChild(a);
     });
   }
@@ -452,8 +453,8 @@
 
     menu.appendChild(createSeparator());
 
-    // Recent lists (API decides count) and All Lists…
-    const recent = (allLists || []);
+    // Recent lists (API decides count) and All Lists… (exclude current list)
+    const recent = (allLists || []).filter(lst => !currentList || lst.name !== currentList.name);
     recent.forEach(lst=>{
       const a = document.createElement('a');
       const prefix = lst.name === currentList?.name ? '• ' : '';
@@ -465,18 +466,21 @@
       if (lst.name === currentList?.name) {
         a.style.fontWeight = 'bold';
       }
-      a.onclick = (e) => { e.preventDefault(); hideMenus(); options.callbacks.selectList && options.callbacks.selectList(lst.name); };
+      // Let anchors navigate normally so the new list loads fresh
+      a.onclick = () => hideMenus();
       menu.appendChild(a);
     });
 
     // Link to index page
-    const allLink = document.createElement('div');
+    const allLink = document.createElement('a');
     allLink.textContent = 'All Lists…';
+    allLink.href = window.location.pathname;
+    allLink.style.display = 'block';
     allLink.style.padding = '4px 12px';
     allLink.style.cursor = 'pointer';
     allLink.onmouseover = () => allLink.style.background = '#eee';
     allLink.onmouseout = () => allLink.style.background = '';
-    allLink.onclick = () => { hideMenus(); options.callbacks.indexLink && options.callbacks.indexLink(); };
+    allLink.onclick = () => hideMenus();
     menu.appendChild(allLink);
   }
 
