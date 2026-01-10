@@ -411,10 +411,9 @@
     addTrigger(menu, 'View…', (sm) => {
       addMenuItem(sm, 'Expand All', options.callbacks.expandAll || (()=>{}));
       addMenuItem(sm, 'Collapse All', options.callbacks.collapseAll || (()=>{}));
-    });
-
-    // Filters… submenu (includes Inherit/None)
-    addTrigger(menu, 'Filters…', (sm) => {
+      
+      // Filters section
+      sm.appendChild(createSeparator());
       const setFilter = (val) => {
         if (!currentList) return;
         currentList.filter = val;
@@ -442,6 +441,12 @@
           options.callbacks.toggleListType();
         }
       });
+      // Sort Journal (only for journal type lists)
+      if (currentList && currentList.type === 'journal' && options && options.callbacks && typeof options.callbacks.sortJournal === 'function') {
+        addMenuItem(sm, 'Sort Journal', () => {
+          options.callbacks.sortJournal();
+        });
+      }
       // Uncheck all moved to Settings
       addMenuItem(sm, 'Uncheck All', options.callbacks.uncheckAll || (()=>{}));
       // Delete action with type + name
