@@ -523,51 +523,52 @@ function getTitlePrefix(title, prefixLen) {
   return null;
 }
 
-// Reorder only the section elements in parentArray among the original section-slots,
-// leaving non-section elements in their original positions.
+// Reorder only the section elements with matching date prefixes in parentArray,
+// leaving non-matching sections and other elements in their original positions.
 function reorderSectionsInPlace(parentArray, prefixLen) {
   if (!Array.isArray(parentArray)) return;
-  // Collect indices of section slots and their section objects
-  const sectionSlots = [];
+  
+  // Collect only sections that have the matching prefix pattern
+  const matchingSections = [];
+  const matchingIndices = [];
   for (let i = 0; i < parentArray.length; i++) {
     if (parentArray[i] && parentArray[i].type === 'section') {
-      sectionSlots.push({ index: i, section: parentArray[i] });
+      const prefix = getTitlePrefix(parentArray[i].title, prefixLen);
+      if (prefix) {
+        matchingSections.push({ section: parentArray[i], prefix });
+        matchingIndices.push(i);
+      }
     }
   }
-  if (sectionSlots.length <= 1) return;
+  
+  if (matchingSections.length <= 1) return;
 
-  // Sort sections by prefix descending (newest-first); if prefix missing, treat as smallest
-  sectionSlots.sort((a, b) => {
-    const pa = getTitlePrefix(a.section.title, prefixLen);
-    const pb = getTitlePrefix(b.section.title, prefixLen);
-    if (pa && pb) return pb.localeCompare(pa);
-    if (pa && !pb) return -1; // keep prefixed before non-prefixed
-    if (!pa && pb) return 1;
-    return 0;
-  });
+  // Sort matching sections by prefix descending (newest-first)
+  matchingSections.sort((a, b) => b.prefix.localeCompare(a.prefix));
 
-  // Place sorted sections back into the parentArray at their original section slot indices
-  let si = 0;
-  for (let i = 0; i < parentArray.length; i++) {
-    if (parentArray[i] && parentArray[i].type === 'section') {
-      parentArray[i] = sectionSlots[si++].section;
-    }
+  // Place sorted sections back at the positions where matching sections were
+  for (let i = 0; i < matchingSections.length; i++) {
+    parentArray[matchingIndices[i]] = matchingSections[i].section;
   }
 }
 
 // Sort entire journal: years, months and days (sections only), newest-first
 function sortJournal() {
   if (!currentList || !Array.isArray(currentList.items)) return;
-  if (window.JournalHelper && typeof JournalHelper.flattenLegacyYears === 'function') {
-    JournalHelper.flattenLegacyYears(currentList);
-  }
-  // Sort month-level sections (prefixLen = 7) at root, then days (prefixLen = 10)
+  
+  // Sort month-level sections (prefixLen = 7) at root
   reorderSectionsInPlace(currentList.items, 7);
-  currentList.items.forEach(monthSec => {
-    if (monthSec && monthSec.type === 'section' && Array.isArray(monthSec.items)) {
-      reorderSectionsInPlace(monthSec.items, 10);
+  
+  // Then sort day sections (prefixLen = 10) inside each month section
+  currentList.items.forEach(item => {
+    if (item && item.type === 'section' && Array.isArray(item.items)) {
+      // Only process if this looks like a month section (has 7-char date prefix)
+      if (getTitlePrefix(item.title, 7)) {
+        reorderSectionsInPlace(item.items, 10);
+      }
     }
   });
+  
   render();
   scheduleSave();
 }
