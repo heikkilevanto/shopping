@@ -7,6 +7,7 @@
 // ================= Data =================
 let allLists = [];   // {name}
 let currentList = null;
+let currentListLastModified = null; // Last-Modified header from server
 let saveTimeout;
 let focusItem = null;
 let isSaving = false;
@@ -79,7 +80,9 @@ function saveCurrentList() {
     method: 'POST',
     body: JSON.stringify(currentList, null, 2) + '\n',
     headers: { 'Content-Type': 'application/json' }
-  }).then(() => {
+  }).then(r => {
+    // Update Last-Modified header after successful save
+    currentListLastModified = r.headers.get('Last-Modified');
     isSaving = false;
     isModified = false;
     updateStatus();
@@ -686,7 +689,10 @@ function selectList(name,data){
   }
   else
     fetch(`/shopping/api.cgi/${name}`)
-    .then(r=>r.json())
+    .then(r=>{
+      currentListLastModified = r.headers.get('Last-Modified');
+      return r.json();
+    })
     .then(d=>{
       currentList=d;
 
@@ -1105,6 +1111,43 @@ if (typeof drag !== 'undefined' && drag.init) {
 if (typeof initPhotoModule !== 'undefined') {
   initPhotoModule();
 }
+
+// Add focus listener to check for updates when window regains focus
+window.addEventListener('focus', () => {
+  if (!currentList || !currentList.name || !currentListLastModified) return;
+  
+  // Check if list has been modified on server
+  fetch(`/shopping/api.cgi/${currentList.name}`, {
+    headers: { 'If-Modified-Since': currentListLastModified }
+  })
+  .then(r => {
+    if (r.status === 304) {
+      // Not modified, nothing to do
+      console.log('List not modified on server.');
+      return null;
+    }
+    if (r.ok) {
+      // File was modified, reload it
+      currentListLastModified = r.headers.get('Last-Modified');
+      console.log('List has changed on server! Reloading...');
+      return r.json();
+    }
+    return null;
+  })
+  .then(d => {
+    if (d) {
+      currentList = d;
+      isModified = false;
+      isSaving = false;
+      clearTimeout(saveTimeout);
+      render();
+      // Brief status update
+      listStatus.textContent = ' ↻';
+      setTimeout(() => updateStatus(), 1500);
+    }
+  })
+  .catch(err => console.error('Focus check failed:', err));
+});
 
 // Ask API for a limited set of recent lists to minimize payload
 fetch('/shopping/api.cgi/?limit=5')

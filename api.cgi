@@ -1,13 +1,12 @@
 #!/usr/bin/perl
 use strict;
 use warnings;
-use CGI;
 use File::Copy qw(copy);
 
 use feature 'unicode_strings';
 use utf8;  # Source code and string literals are utf-8
-binmode STDOUT, ":utf8"; # Stdout only. Not STDIN, the CGI module handles that
-binmode STDERR, ":utf8"; #
+binmode STDOUT, ":utf8";
+binmode STDERR, ":utf8";
 
 
 # --- configuration ---
@@ -23,12 +22,21 @@ my $fullfile = "$file.json";
 
 print STDERR "Shopping list: u='$username' f='$file' \n";
 
-my $cgi = CGI->new;
-my $limit_param = $cgi->param('limit');
+# Helper to format mtime as HTTP Last-Modified header
+sub format_last_modified {
+  my ($mtime) = @_;
+  my @gmt = gmtime($mtime);
+  my @days = qw(Sun Mon Tue Wed Thu Fri Sat);
+  my @months = qw(Jan Feb Mar Apr May Jun Jul Aug Sep Oct Nov Dec);
+  return sprintf("%s, %02d %s %04d %02d:%02d:%02d GMT",
+      $days[$gmt[6]], $gmt[3], $months[$gmt[4]], $gmt[5]+1900,
+      $gmt[2], $gmt[1], $gmt[0]);
+}
+
+# Parse limit parameter from QUERY_STRING
 my $limit = undef;
-if (defined $limit_param) {
-  # sanitize: numeric and reasonable bounds
-  if ($limit_param =~ /^(\d{1,3})$/) {
+if (my $qs = $ENV{QUERY_STRING}) {
+  if ($qs =~ /(?:^|&)limit=(\d{1,3})(?:&|$)/) {
     $limit = $1 + 0;
     $limit = 1 if $limit < 1;
     $limit = 100 if $limit > 100;
@@ -61,9 +69,24 @@ if ($ENV{REQUEST_METHOD} eq 'GET' && ($path_info eq '' || $path_info eq '/') ) {
 elsif ( $ENV{REQUEST_METHOD} eq 'GET' ) {  # return file contents
     error (400, "Bad Request", "Illegal file name '$path_info' " )
       unless ($path_info =~ /^\/?[a-zA-ZåÅæÆøØ0-9_]+$/ );
+    
+    # Get file modification time
+    my @stat = stat($fullfile) or error("404", "Not Found", "File '$fullfile' not found");
+    my $mtime = $stat[9];
+    my $last_modified = format_last_modified($mtime);
+    
+    # Check If-Modified-Since header
+    my $if_modified_since = $ENV{HTTP_IF_MODIFIED_SINCE} || '';
+    if ($if_modified_since eq $last_modified) {
+        print "Status: 304 Not Modified\r\n";
+        print "Last-Modified: $last_modified\r\n\r\n";
+        exit 0;
+    }
+    
     open my $fh, "<:encoding(UTF-8)", "$fullfile" or
       error ("500","","Can not open '$fullfile'");
-    print "Content-Type: application/json; charset=UTF-8\r\n\r\n";
+    print "Content-Type: application/json; charset=UTF-8\r\n";
+    print "Last-Modified: $last_modified\r\n\r\n";
     local $/;
     print <$fh>;
     close $fh;
@@ -96,7 +119,14 @@ elsif ($ENV{REQUEST_METHOD} eq 'POST') {
     print $fh $new_content;
     close $fh or error ("Failed to close $fullfile: $!");
     print STDERR "Saved " . length($new_content) . " bytes to '$fullfile' \n";
-    print "Content-Type: text/plain; charset=utf-8\n\n";
+    
+    # Return Last-Modified header for the newly saved file
+    my @stat = stat($fullfile);
+    my $mtime = $stat[9];
+    my $last_modified = format_last_modified($mtime);
+    
+    print "Content-Type: text/plain; charset=utf-8\r\n";
+    print "Last-Modified: $last_modified\r\n\r\n";
     print "OK\n";
 }
 
