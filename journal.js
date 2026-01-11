@@ -69,9 +69,10 @@ const JournalHelper = (function() {
   }
 
   // Insert newSection into parentItems among the section entries so that sections are
-  // ordered newest-first by their numeric prefix (prefixLen). Non-section items are left in place.
+  // ordered by their numeric prefix (prefixLen) according to sortOrder. Non-section items are left in place.
   // Return inserted index.
-  function insertSectionByPrefix(parentItems, newSection, prefixLen, newPrefix) {
+  function insertSectionByPrefix(parentItems, newSection, prefixLen, newPrefix, sortOrder) {
+    sortOrder = sortOrder || 'newest-first';
     if (!Array.isArray(parentItems)) {
       parentItems.push(newSection);
       return parentItems.length - 1;
@@ -80,13 +81,31 @@ const JournalHelper = (function() {
       const it = parentItems[i];
       if (it && it.type === 'section') {
         const itPrefix = extractPrefix(it.title, prefixLen);
-        if (itPrefix && itPrefix < newPrefix) {
-          parentItems.splice(i, 0, newSection);
-          return i;
+        if (itPrefix) {
+          // For newest-first: insert before older sections (itPrefix < newPrefix)
+          // For oldest-first: insert before newer sections (itPrefix > newPrefix)
+          if ((sortOrder === 'newest-first' && itPrefix < newPrefix) ||
+              (sortOrder === 'oldest-first' && itPrefix > newPrefix)) {
+            parentItems.splice(i, 0, newSection);
+            return i;
+          }
         }
       }
     }
-    // No older section found — append at end (keeps newest-first)
+    // No insertion point found — would append at end
+    // Scan backwards to find the last journal section and insert after it
+    for (let i = parentItems.length - 1; i >= 0; i--) {
+      const it = parentItems[i];
+      if (it && it.type === 'section') {
+        const itPrefix = extractPrefix(it.title, prefixLen);
+        if (itPrefix) {
+          // Found a journal section - insert after it
+          parentItems.splice(i + 1, 0, newSection);
+          return i + 1;
+        }
+      }
+    }
+    // No journal sections found at all - append at end
     parentItems.push(newSection);
     return parentItems.length - 1;
   }
@@ -102,12 +121,13 @@ const JournalHelper = (function() {
   }
 
   // Ensure month/day sections exist for a date inside list (list.items).
-  // Inserts sections in proper newest-first chronological positions among sibling sections.
+  // Inserts sections in chronological positions according to sortOrder among sibling sections.
   // Ensures day section has at least one item; created day item is appended to the day.
   // Returns an object describing what was found/created and references to created structures.
   //
   // Usage:
-  //   const res = JournalHelper.ensureJournalPathForDate(currentList, new Date());
+  //   const sortOrder = list.sortOrder || 'newest-first';
+  //   const res = JournalHelper.ensureJournalPathForDate(list, new Date(), { sortOrder });
   //   if (res.createdDay && res.createdItem) { focusItem = res.createdItem; scheduleSave(); render(); }
   function ensureJournalPathForDate(list, date, opts) {
     opts = opts || {};
@@ -115,6 +135,7 @@ const JournalHelper = (function() {
       return { created: false };
     }
 
+    const sortOrder = opts.sortOrder || list.sortOrder || 'newest-first';
     const p = formatPrefixes(date, opts);
     let createdMonth = false, createdDay = false, createdItem = null;
 
@@ -122,7 +143,7 @@ const JournalHelper = (function() {
     let monthSection = findSectionStartingWith(list.items, p.monthPrefix);
     if (!monthSection) {
       monthSection = createSection(p.monthTitle, []);
-      insertSectionByPrefix(list.items, monthSection, 7, p.monthPrefix);
+      insertSectionByPrefix(list.items, monthSection, 7, p.monthPrefix, sortOrder);
       createdMonth = true;
     }
 
@@ -132,7 +153,7 @@ const JournalHelper = (function() {
       // day items should be text entries initially; create one empty text item appended to the day
       const emptyDayItem = { type: 'text', text: '' };
       daySection = createSection(p.dayTitle, [ emptyDayItem ]);
-      insertSectionByPrefix(monthSection.items, daySection, 10, p.dayPrefix);
+      insertSectionByPrefix(monthSection.items, daySection, 10, p.dayPrefix, sortOrder);
       createdDay = true;
       createdItem = emptyDayItem;
     } else {

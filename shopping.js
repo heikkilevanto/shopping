@@ -150,6 +150,7 @@ function initMenuIntegration(){
         // New callbacks for sorting and deletion
         sortJournal: () => sortJournal(),
         sortSection: (section) => sortSection(section),
+        toggleSortOrder: () => toggleSortOrder(),
         deleteSection: (section) => deleteSection(section),
         rerender: () => {
           // Re-render the list to reflect changes (color, filter, collapse state)
@@ -229,6 +230,7 @@ function createNewList(name=null, type='checklist') {
     newListObj = {
       name,
       type: 'journal',
+      sortOrder: 'newest-first',
       items: []
     };
   } else {
@@ -340,8 +342,9 @@ function getTitlePrefix(title, prefixLen) {
 
 // Reorder only the section elements with matching date prefixes in parentArray,
 // leaving non-matching sections and other elements in their original positions.
-function reorderSectionsInPlace(parentArray, prefixLen) {
+function reorderSectionsInPlace(parentArray, prefixLen, sortOrder) {
   if (!Array.isArray(parentArray)) return;
+  sortOrder = sortOrder || 'newest-first';
   
   // Collect only sections that have the matching prefix pattern
   const matchingSections = [];
@@ -358,8 +361,12 @@ function reorderSectionsInPlace(parentArray, prefixLen) {
   
   if (matchingSections.length <= 1) return;
 
-  // Sort matching sections by prefix descending (newest-first)
-  matchingSections.sort((a, b) => b.prefix.localeCompare(a.prefix));
+  // Sort matching sections by prefix (newest-first = descending, oldest-first = ascending)
+  if (sortOrder === 'oldest-first') {
+    matchingSections.sort((a, b) => a.prefix.localeCompare(b.prefix));
+  } else {
+    matchingSections.sort((a, b) => b.prefix.localeCompare(a.prefix));
+  }
 
   // Place sorted sections back at the positions where matching sections were
   for (let i = 0; i < matchingSections.length; i++) {
@@ -367,19 +374,20 @@ function reorderSectionsInPlace(parentArray, prefixLen) {
   }
 }
 
-// Sort entire journal: years, months and days (sections only), newest-first
+// Sort entire journal: years, months and days (sections only)
 function sortJournal() {
   if (!currentList || !Array.isArray(currentList.items)) return;
+  const sortOrder = currentList.sortOrder || 'newest-first';
   
   // Sort month-level sections (prefixLen = 7) at root
-  reorderSectionsInPlace(currentList.items, 7);
+  reorderSectionsInPlace(currentList.items, 7, sortOrder);
   
   // Then sort day sections (prefixLen = 10) inside each month section
   currentList.items.forEach(item => {
     if (item && item.type === 'section' && Array.isArray(item.items)) {
       // Only process if this looks like a month section (has 7-char date prefix)
       if (getTitlePrefix(item.title, 7)) {
-        reorderSectionsInPlace(item.items, 10);
+        reorderSectionsInPlace(item.items, 10, sortOrder);
       }
     }
   });
@@ -391,6 +399,7 @@ function sortJournal() {
 // Sort only the immediate subsections of the provided section (determine prefix len from children)
 function sortSection(section) {
   if (!section || !Array.isArray(section.items)) return;
+  const sortOrder = currentList.sortOrder || 'newest-first';
   // Decide which prefix length to use by inspecting children titles
   let prefixLen = null;
   for (const child of section.items) {
@@ -404,9 +413,21 @@ function sortSection(section) {
     alert('No sortable subsections found in this section.');
     return;
   }
-  reorderSectionsInPlace(section.items, prefixLen);
+  reorderSectionsInPlace(section.items, prefixLen, sortOrder);
   render();
   scheduleSave();
+}
+
+// Toggle journal sort order between newest-first and oldest-first
+function toggleSortOrder() {
+  if (!currentList) return;
+  const current = currentList.sortOrder || 'newest-first';
+  currentList.sortOrder = current === 'newest-first' ? 'oldest-first' : 'newest-first';
+  
+  // Auto-sort after toggling
+  sortJournal();
+  
+  if (window.Menu && Menu.setCurrentList) Menu.setCurrentList(currentList);
 }
 
 // ============== Section deletion helpers ==============

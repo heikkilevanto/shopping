@@ -244,6 +244,15 @@
             options.callbacks.sortJournal();
           });
         }
+        
+        // Toggle sort order for journals
+        if (options && options.callbacks && typeof options.callbacks.toggleSortOrder === 'function') {
+          const sortOrder = currentList.sortOrder || 'newest-first';
+          const label = sortOrder === 'newest-first' ? '⬇ Sort: Newest First' : '⬆ Sort: Oldest First';
+          addMenuItem(menu, label, () => {
+            options.callbacks.toggleSortOrder();
+          });
+        }
       }
 
       addMenuItem(menu, '↔ Toggle Journal Mode', () => {
@@ -446,6 +455,15 @@
         addMenuItem(sm, 'Sort Journal', () => {
           options.callbacks.sortJournal();
         });
+        
+        // Toggle sort order
+        if (typeof options.callbacks.toggleSortOrder === 'function') {
+          const sortOrder = currentList.sortOrder || 'newest-first';
+          const label = sortOrder === 'newest-first' ? 'Sort: Newest First ⬇' : 'Sort: Oldest First ⬆';
+          addMenuItem(sm, label, () => {
+            options.callbacks.toggleSortOrder();
+          });
+        }
       }
       // Uncheck all moved to Settings
       addMenuItem(sm, 'Uncheck All', options.callbacks.uncheckAll || (()=>{}));
