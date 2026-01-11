@@ -17,7 +17,7 @@ print <<'END';
   .section { border: 1px solid #ccc; margin: 0.5em 0; padding: 0.5em; }
   .section-header { font-weight: bold; cursor: pointer; display: flex; align-items: center; gap: 0.5em; }
   .section-header .title { flex: 1; text-align: left; min-width: 0; }
-  .line { padding: 0.2em 0; display: flex; align-items: center; }
+  .line { padding: 0.2em 0; display: flex; align-items: flex-start; }
   .line-text { margin-left: 0.5em; flex: 1; cursor: text; }
   .section-header, .line { flex-wrap: wrap; }
   .menu { margin-left: 0.5em; }
