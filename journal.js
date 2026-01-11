@@ -154,39 +154,11 @@ const JournalHelper = (function() {
     };
   }
 
-  // Flatten legacy year → month → day hierarchy into month → day at the list root.
-  // Returns true if changes were made.
-  function flattenLegacyYears(list) {
-    if (!list || !Array.isArray(list.items) || list.items.length === 0) return false;
-
-    let changed = false;
-    const newItems = [];
-
-    for (const entry of list.items) {
-      const isYearSection = entry && entry.type === 'section' && extractPrefix(entry.title, 4);
-      if (isYearSection && Array.isArray(entry.items)) {
-        // Move its children (months/days) up one level
-        for (const child of entry.items) {
-          newItems.push(child);
-        }
-        changed = true;
-      } else {
-        newItems.push(entry);
-      }
-    }
-
-    if (changed) {
-      list.items = newItems;
-    }
-    return changed;
-  }
-
   // Public API
   return {
     formatPrefixes,
     findSectionStartingWith,
-    ensureJournalPathForDate,
-    flattenLegacyYears
+    ensureJournalPathForDate
   };
 })();
 
