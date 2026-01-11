@@ -68,7 +68,7 @@ if ($ENV{REQUEST_METHOD} eq 'GET' && ($path_info eq '' || $path_info eq '/') ) {
 
 elsif ( $ENV{REQUEST_METHOD} eq 'GET' ) {  # return file contents
     error (400, "Bad Request", "Illegal file name '$path_info' " )
-      unless ($path_info =~ /^\/?[a-zA-ZåÅæÆøØ0-9_]+$/ );
+      unless ($path_info =~ /^\/?[a-zA-ZåÅæÆøØ0-9_\-]+$/ );
     
     # Get file modification time
     my @stat = stat($fullfile) or error("404", "Not Found", "File '$fullfile' not found");
@@ -94,7 +94,7 @@ elsif ( $ENV{REQUEST_METHOD} eq 'GET' ) {  # return file contents
 
 elsif ($ENV{REQUEST_METHOD} eq 'POST') {
     error (400, "Bad Request", "Illegal file name" )
-      unless ($path_info =~ /^\/?[a-zA-ZåÅæÆøØ0-9_]+$/ );
+      unless ($path_info =~ /^\/?[a-zA-ZåÅæÆøØ0-9_\-]+$/ );
     binmode STDIN;
     my $cl = $ENV{CONTENT_LENGTH} || 0;
     print STDERR "POSTing '$cl' bytes to '$fullfile' \n";

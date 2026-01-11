@@ -51,6 +51,21 @@ listStatus.style.fontWeight = 'normal';
 //listStatus.style.color = '#c00';  // red for modified
 titleContainer.appendChild(listStatus);
 
+// Top-line error/status banner
+const errorBanner = document.createElement('div');
+errorBanner.id = 'error-banner';
+errorBanner.style.display = 'none';
+errorBanner.style.marginLeft = 'auto';
+errorBanner.style.padding = '0.2em 0.6em';
+errorBanner.style.fontWeight = 'bold';
+errorBanner.style.borderRadius = '4px';
+errorBanner.style.backgroundColor = '#c00';
+errorBanner.style.color = '#fff';
+errorBanner.style.whiteSpace = 'nowrap';
+errorBanner.style.overflow = 'hidden';
+errorBanner.style.textOverflow = 'ellipsis';
+titleContainer.appendChild(errorBanner);
+
 
 // Container for list items
 const container = document.createElement('div');
@@ -71,6 +86,30 @@ function updateStatus() {
   }
 }
 
+function setBanner(message, type = 'error') {
+  if (!message) return clearBanner();
+  errorBanner.textContent = message;
+  errorBanner.style.display = 'flex';
+  errorBanner.style.backgroundColor = type === 'info' ? '#d97706' : '#c00';
+}
+
+function clearBanner() {
+  errorBanner.textContent = '';
+  errorBanner.style.display = 'none';
+}
+
+function sanitizeListName(rawName) {
+  const fallback = 'NewList';
+  const trimmed = (rawName ?? '').trim();
+  let candidate = trimmed || fallback;
+  candidate = candidate.replace(/[^\w-]/g, '_');
+  candidate = candidate.replace(/_+/g, '_');
+  candidate = candidate.replace(/^_+/, '').replace(/_+$/, '');
+  if (!candidate) candidate = fallback;
+  const adjusted = trimmed.length > 0 && candidate !== trimmed;
+  return { name: candidate, adjusted };
+}
+
 function saveCurrentList() {
   isSaving = true;
   updateStatus();
@@ -80,12 +119,22 @@ function saveCurrentList() {
     method: 'POST',
     body: JSON.stringify(currentList, null, 2) + '\n',
     headers: { 'Content-Type': 'application/json' }
-  }).then(r => {
-    // Update Last-Modified header after successful save
+  }).then(async r => {
+    if (!r.ok) {
+      const bodyText = await r.text().catch(() => '');
+      throw new Error(bodyText.trim() || `Save failed (${r.status} ${r.statusText})`);
+    }
+    clearBanner();
     currentListLastModified = r.headers.get('Last-Modified');
     isSaving = false;
     isModified = false;
     updateStatus();
+  }).catch(err => {
+    console.error('Save failed', err);
+    isSaving = false;
+    updateStatus();
+    setBanner(err.message || 'Save failed');
+    throw err;
   });
 }
 
@@ -221,34 +270,36 @@ function createNewList(name=null, type='checklist') {
   // TODO - Save the current list if modified
   if (! name)
     name = prompt('Enter new list name:');
-  if(!name)
-    name = "NewList";
+
+  const { name: safeName, adjusted } = sanitizeListName(name);
+  if (adjusted) setBanner(`Name adjusted to ${safeName} for saving.`, 'info');
+  else clearBanner();
 
   let newListObj;
   if (type === 'journal') {
     // For journal lists, start with empty items and let JournalHelper populate the year/month/day path.
     newListObj = {
-      name,
+      name: safeName,
       type: 'journal',
       sortOrder: 'newest-first',
       items: []
     };
   } else {
     newListObj = {
-      name,
+      name: safeName,
       type: type || 'checklist',
       items:[{
         type:"section",
-        title:name,
+        title:safeName,
         collapsed:false,
         items:[{type:"item", text:"", checked:false}]
       }]
     };
   }
 
-  allLists.push({name});
+  if (!allLists.find(l => l.name === safeName)) allLists.push({name: safeName});
   if (window.Menu && Menu.setAllLists) Menu.setAllLists(allLists);
-  selectList(name,newListObj);
+  selectList(safeName,newListObj);
   scheduleSave();
 }
 
@@ -526,7 +577,11 @@ function selectList(name,data){
   }
   else
     fetch(`/shopping/api.cgi/${name}`)
-    .then(r=>{
+    .then(async r=>{
+      if (!r.ok) {
+        const bodyText = await r.text().catch(() => '');
+        throw new Error(bodyText.trim() || `Failed to load list (${r.status} ${r.statusText})`);
+      }
       currentListLastModified = r.headers.get('Last-Modified');
       return r.json();
     })
@@ -554,6 +609,11 @@ function selectList(name,data){
 
       setListFavicon(name,currentList?.bgColor || '#fff');
       if (window.Menu && Menu.setCurrentList) Menu.setCurrentList(currentList);
+      clearBanner();
+    })
+    .catch(err => {
+      console.error('Failed to load list', err);
+      setBanner(err.message || 'Failed to load list');
     });
 }
 
@@ -1000,7 +1060,13 @@ window.addEventListener('focus', () => {
 
 // Ask API for a limited set of recent lists to minimize payload
 fetch('/shopping/api.cgi/?limit=5')
-  .then(r=>r.json())
+  .then(async r=>{
+    if (!r.ok) {
+      const bodyText = await r.text().catch(() => '');
+      throw new Error(bodyText.trim() || `Failed to fetch lists (${r.status} ${r.statusText})`);
+    }
+    return r.json();
+  })
   .then(data=>{
     allLists = data.map(name=>({name}));
     if (!allLists.length) { // Make sure we have at least some list
@@ -1023,4 +1089,7 @@ fetch('/shopping/api.cgi/?limit=5')
     selectList(allLists[idx].name);
     if (window.Menu && Menu.setAllLists) Menu.setAllLists(allLists);
   })
-  .catch(err=>console.log('Using default list:',err));
+  .catch(err=>{
+    console.log('Using default list:',err);
+    setBanner(err.message || 'Failed to load list index');
+  });
