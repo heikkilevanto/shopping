@@ -75,6 +75,7 @@ scriptlink("util.js");
 scriptlink("drag.js");
 scriptlink("menu.js");
 scriptlink("journal.js");
+scriptlink("add-item.js");
 scriptlink("photo.js");
 
 scriptlink("shopping.js");
