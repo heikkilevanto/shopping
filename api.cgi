@@ -97,7 +97,7 @@ elsif ($ENV{REQUEST_METHOD} eq 'POST') {
       unless ($path_info =~ /^\/?[a-zA-ZåÅæÆøØ0-9_]+$/ );
     binmode STDIN;
     my $cl = $ENV{CONTENT_LENGTH} || 0;
-    print STDERR "POSTing to '$cl' bytes to '$fullfile' \n";
+    print STDERR "POSTing '$cl' bytes to '$fullfile' \n";
     my $new_content = '';
     my $read_total = 0;
     my $buffer = '';

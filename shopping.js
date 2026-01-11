@@ -161,12 +161,12 @@ function initMenuIntegration(){
         createJournalEntryForDate: (dateStr) => createJournalEntryForDate(dateStr),
         addItemToList: (anchor) => {
           if (!currentList) return;
-          const defaultType = (currentList?.type === 'journal') ? 'text' : 'checkbox';
+          const defaultType = (currentList?.type === 'journal') ? 'journal-entry' : 'checkbox';
           AddItemForm.show(currentList.items, { parentSection: null, anchor: anchor || menuButton, defaultType });
         },
         addItemToSection: (section, anchor) => {
           if (!section || !Array.isArray(section.items)) return;
-          const defaultType = (currentList?.type === 'journal') ? 'text' : 'checkbox';
+          const defaultType = (currentList?.type === 'journal') ? 'journal-entry' : 'checkbox';
           AddItemForm.show(section.items, { parentSection: section, anchor, defaultType });
         },
         capturePhoto: () => {
