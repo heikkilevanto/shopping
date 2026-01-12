@@ -35,6 +35,22 @@ titleContainer.appendChild(menuButton);
 
 const listName = document.createElement('span');
 listName.id = 'list-name';
+listName.contentEditable = true;
+listName.onkeydown = e => {
+  if (e.key === 'Enter') {
+    e.preventDefault();
+    listName.blur();
+  }
+};
+listName.oninput = () => {
+  if (!currentList) return;
+  const newTitle = listName.textContent.trim();
+  if (newTitle && currentList.title !== newTitle) {
+    currentList.title = newTitle;
+    document.title = newTitle + (listStatus.textContent || '');
+    scheduleSave();
+  }
+};
 titleContainer.appendChild(listName);
 
 const listStatus = document.createElement('span');
