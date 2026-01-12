@@ -374,97 +374,24 @@ function createJournalEntryForDate(dateStr) {
 }
 
 // ============== Sorting helpers and functions for journal lists ==============
-
-// Extract a prefix of required length (4/7/10) from a title if it matches the corresponding pattern
-function getTitlePrefix(title, prefixLen) {
-  if (typeof title !== 'string') return null;
-  if (prefixLen === 4) {
-    const m = title.match(/^(\d{4})/);
-    return m ? m[1] : null;
-  } else if (prefixLen === 7) {
-    const m = title.match(/^(\d{4}-\d{2})/);
-    return m ? m[1] : null;
-  } else if (prefixLen === 10) {
-    const m = title.match(/^(\d{4}-\d{2}-\d{2})/);
-    return m ? m[1] : null;
-  }
-  return null;
-}
-
-// Reorder only the section elements with matching date prefixes in parentArray,
-// leaving non-matching sections and other elements in their original positions.
-function reorderSectionsInPlace(parentArray, prefixLen, sortOrder) {
-  if (!Array.isArray(parentArray)) return;
-  sortOrder = sortOrder || 'newest-first';
-  
-  // Collect only sections that have the matching prefix pattern
-  const matchingSections = [];
-  const matchingIndices = [];
-  for (let i = 0; i < parentArray.length; i++) {
-    if (parentArray[i] && parentArray[i].type === 'section') {
-      const prefix = getTitlePrefix(parentArray[i].title, prefixLen);
-      if (prefix) {
-        matchingSections.push({ section: parentArray[i], prefix });
-        matchingIndices.push(i);
-      }
-    }
-  }
-  
-  if (matchingSections.length <= 1) return;
-
-  // Sort matching sections by prefix (newest-first = descending, oldest-first = ascending)
-  if (sortOrder === 'oldest-first') {
-    matchingSections.sort((a, b) => a.prefix.localeCompare(b.prefix));
-  } else {
-    matchingSections.sort((a, b) => b.prefix.localeCompare(a.prefix));
-  }
-
-  // Place sorted sections back at the positions where matching sections were
-  for (let i = 0; i < matchingSections.length; i++) {
-    parentArray[matchingIndices[i]] = matchingSections[i].section;
-  }
-}
+// Refactored to use JournalHelper from journal.js
 
 // Sort entire journal: years, months and days (sections only)
 function sortJournal() {
   if (!currentList || !Array.isArray(currentList.items)) return;
-  const sortOrder = currentList.sortOrder || 'newest-first';
-  
-  // Sort month-level sections (prefixLen = 7) at root
-  reorderSectionsInPlace(currentList.items, 7, sortOrder);
-  
-  // Then sort day sections (prefixLen = 10) inside each month section
-  currentList.items.forEach(item => {
-    if (item && item.type === 'section' && Array.isArray(item.items)) {
-      // Only process if this looks like a month section (has 7-char date prefix)
-      if (getTitlePrefix(item.title, 7)) {
-        reorderSectionsInPlace(item.items, 10, sortOrder);
-      }
-    }
-  });
-  
+  JournalHelper.sortJournal(currentList);
   render();
   scheduleSave();
 }
 
-// Sort only the immediate subsections of the provided section (determine prefix len from children)
+// Sort only the immediate subsections of the provided section
 function sortSection(section) {
   if (!section || !Array.isArray(section.items)) return;
-  const sortOrder = currentList.sortOrder || 'newest-first';
-  // Decide which prefix length to use by inspecting children titles
-  let prefixLen = null;
-  for (const child of section.items) {
-    if (child && child.type === 'section') {
-      if (getTitlePrefix(child.title, 10)) { prefixLen = 10; break; }
-      if (getTitlePrefix(child.title, 7)) { prefixLen = 7; /* but keep scanning for 10 just in case */ }
-      if (!prefixLen && getTitlePrefix(child.title, 4)) prefixLen = 4;
-    }
-  }
-  if (!prefixLen) {
+  const success = JournalHelper.sortSection(section, currentList);
+  if (!success) {
     alert('No sortable subsections found in this section.');
     return;
   }
-  reorderSectionsInPlace(section.items, prefixLen, sortOrder);
   render();
   scheduleSave();
 }

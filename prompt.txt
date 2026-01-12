@@ -15,6 +15,8 @@
 - Use descriptive function names: `saveCurrentList()`, `renderSection()`, `scheduleSave()`
 - Keep functions focused and reasonably sized
 - Declare module-level variables at the top (using `let` or `const`)
+- Modules may well keep their functions in the global namespace.
+- Do not pass many callbacks back and forth between modules unless necessary
 
 ## JavaScript Style
 
@@ -23,6 +25,7 @@
 - Regular functions for top-level definitions: `function render() { ... }`
 - Template literals when constructing strings with variables
 - Optional chaining when appropriate: `currentList?.bgColor`
+- Not too many callbacks. 
 
 ## DOM Manipulation
 
