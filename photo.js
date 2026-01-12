@@ -152,14 +152,17 @@ function renderPhotoItem(line, item) {
   const img = document.createElement('img');
   img.src = '/shopping/photo.cgi/' + 'heikki' + '/' + item.filename;  // TODO: use actual username
   img.alt = 'Photo: ' + item.filename;
-  img.style.maxWidth = '100%';  // Fit within container/section box
+  // Account for bullet (~1.5em) and margins. On mobile, reduce to ~70% to ensure it fits; on desktop, use 50%
+  img.style.maxWidth = window.innerWidth > 768 ? '50%' : 'calc(100% - 2.5em)';
   img.style.maxHeight = '90vh';  // Limit to 90% of viewport height
   img.style.height = 'auto';
   img.style.width = 'auto';
-  img.style.display = 'block';
+  img.style.display = 'inline-block';
   img.style.cursor = 'pointer';
   img.style.marginTop = '0.25em';
   img.style.marginBottom = '0.25em';
+  img.style.verticalAlign = 'top';
+  img.style.marginLeft = '0.3em';
   
   img.onclick = function(e) {
     e.stopPropagation();
