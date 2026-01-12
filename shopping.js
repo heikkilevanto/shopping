@@ -863,6 +863,7 @@ function render(target){
         // Defer focus to next frame to let layout settle before focusing
         requestAnimationFrame(() => {
           focusEditable(l);
+          l.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
         });
         focused = true; 
         break; 
@@ -870,7 +871,11 @@ function render(target){
     }
     if (!focused) {
       for (const t of titles) {
-        if (t._section === focusItem) { focusEditable(t); break; }
+        if (t._section === focusItem) { 
+          focusEditable(t);
+          t.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+          break;
+        }
       }
     }
     focusItem = null;
