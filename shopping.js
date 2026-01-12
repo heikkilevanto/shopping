@@ -230,7 +230,7 @@ function initMenuIntegration(){
       body: document.body
     });
 
-    if (allLists && Menu.setAllLists) Menu.setAllLists(allLists);
+    if (allLists && Menu.setAllLists) Menu.setAllLists(getRecentListsForMenu());
     if (currentList && Menu.setCurrentList) Menu.setCurrentList(currentList);
   } else {
     // Wait for the page resources to be loaded — server should have included menu.js
@@ -245,6 +245,11 @@ function initMenuIntegration(){
 }
 
 initMenuIntegration();
+
+// Helper to get recent lists for menu (limit to 5 for mobile)
+function getRecentListsForMenu() {
+  return allLists.slice(0, 5);
+}
 
 // Helper to call Menu.hideMenus() if available
 function hideAppMenus(){ if (window.Menu && Menu.hideMenus) Menu.hideMenus(); }
@@ -298,7 +303,7 @@ function createNewList(name=null, type='checklist') {
   }
 
   if (!allLists.find(l => l.name === safeName)) allLists.push({name: safeName});
-  if (window.Menu && Menu.setAllLists) Menu.setAllLists(allLists);
+  if (window.Menu && Menu.setAllLists) Menu.setAllLists(getRecentListsForMenu());
   selectList(safeName,newListObj);
   scheduleSave();
 }
@@ -309,7 +314,7 @@ function deleteCurrentList() {
   fetch(`/shopping/api.cgi/${currentList.name}`,{method:'DELETE'})
   .then ( data => {
     allLists = allLists.filter(l=>l.name!==currentList.name);
-    if (window.Menu && Menu.setAllLists) Menu.setAllLists(allLists);
+    if (window.Menu && Menu.setAllLists) Menu.setAllLists(getRecentListsForMenu());
     indexLink();
   })
   .catch(console.error);
@@ -998,8 +1003,8 @@ window.addEventListener('focus', () => {
   .catch(err => console.error('Focus check failed:', err));
 });
 
-// Ask API for a limited set of recent lists to minimize payload
-fetch('/shopping/api.cgi/?limit=5')
+// Ask API for all available lists
+fetch('/shopping/api.cgi/')
   .then(async r=>{
     if (!r.ok) {
       const bodyText = await r.text().catch(() => '');
@@ -1019,7 +1024,7 @@ fetch('/shopping/api.cgi/?limit=5')
 
     if ( !want ) {
       renderIndex();
-      if (window.Menu && Menu.setAllLists) Menu.setAllLists(allLists);
+      if (window.Menu && Menu.setAllLists) Menu.setAllLists(getRecentListsForMenu());
       return;
     }
 
@@ -1027,7 +1032,7 @@ fetch('/shopping/api.cgi/?limit=5')
     if (idx < 0) idx = 0;
 
     selectList(allLists[idx].name);
-    if (window.Menu && Menu.setAllLists) Menu.setAllLists(allLists);
+    if (window.Menu && Menu.setAllLists) Menu.setAllLists(getRecentListsForMenu());
   })
   .catch(err=>{
     console.log('Using default list:',err);
