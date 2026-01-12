@@ -33,6 +33,16 @@ print <<'END';
     padding: 0.3em;
     box-sizing: border-box;
   }
+  .list-preview .line {
+    flex-wrap: nowrap;
+  }
+  .list-preview input[type="checkbox"] {
+    transform: scale(0.6);
+    transform-origin: left center;
+  }
+  .list-preview span:first-child {
+    font-size: 0.7em;
+  }
   #list-index {
     display: flex;
     flex-wrap: wrap;        /* wrap to next line */
