@@ -705,9 +705,16 @@ function renderItem(container,item,parentItems,parentSection){
     }
   };
   span.oninput=()=>{
-    const currentText=span.textContent.trim();
+    const currentText=span.textContent.replace(/\r?\n/g, ' ').trim();
     item.text=currentText;
     scheduleSave();
+  };
+  // Handle paste: replace newlines with spaces to prevent words from merging
+  span.onpaste = e => {
+    e.preventDefault();
+    const text = (e.clipboardData || window.clipboardData).getData('text');
+    const processedText = text.replace(/\r?\n/g, ' ');
+    document.execCommand('insertText', false, processedText);
   };
   // Prevent native drag-drop into contentEditable text (use custom drag system only)
   span.ondragover = e => e.preventDefault();
