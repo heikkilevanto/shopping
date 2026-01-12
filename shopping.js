@@ -62,7 +62,8 @@ function updateStatus() {
   listStatus.textContent = statusChar;
   // Update tab title
   if (currentList) {
-    document.title = currentList.name + statusChar;
+    const displayTitle = currentList.title || currentList.name;
+    document.title = displayTitle + statusChar;
   }
 }
 
@@ -256,8 +257,10 @@ function createNewList(name=null, type='checklist') {
   if (! name)
     name = prompt('Enter new list name:');
 
-  const { name: safeName, adjusted } = sanitizeListName(name);
-  if (adjusted) setBanner(`Name adjusted to ${safeName} for saving.`, 'info');
+  // The user-provided name is the display title; normalize it for the filename
+  const displayTitle = name || 'NewList';
+  const { name: safeName, adjusted } = sanitizeListName(displayTitle);
+  if (adjusted) setBanner(`File name adjusted to ${safeName} for saving.`, 'info');
   else clearBanner();
 
   let newListObj;
@@ -265,6 +268,7 @@ function createNewList(name=null, type='checklist') {
     // For journal lists, start with empty items and let JournalHelper populate the year/month/day path.
     newListObj = {
       name: safeName,
+      title: displayTitle,
       type: 'journal',
       sortOrder: 'newest-first',
       items: []
@@ -272,17 +276,18 @@ function createNewList(name=null, type='checklist') {
   } else {
     newListObj = {
       name: safeName,
+      title: displayTitle,
       type: type || 'checklist',
       items:[{
         type:"section",
-        title:safeName,
+        title:displayTitle,
         collapsed:false,
         items:[{type:"item", text:"", checked:false}]
       }]
     };
   }
 
-  if (!allLists.find(l => l.name === safeName)) allLists.push({name: safeName});
+  if (!allLists.find(l => l.name === safeName)) allLists.push({name: safeName, title: displayTitle});
   if (window.Menu && Menu.setAllLists) Menu.setAllLists(getRecentListsForMenu());
   selectList(safeName,newListObj);
   scheduleSave();
@@ -290,7 +295,8 @@ function createNewList(name=null, type='checklist') {
 
 function deleteCurrentList() {
   const typeWord = (currentList?.type === 'journal') ? 'journal' : 'list';
-  if(!confirm(`Delete ${typeWord} "${currentList.name}"?`)) return;
+  const displayTitle = currentList?.title || currentList?.name;
+  if(!confirm(`Delete ${typeWord} "${displayTitle}"?`)) return;
   fetch(`/shopping/api.cgi/${currentList.name}`,{method:'DELETE'})
   .then ( data => {
     allLists = allLists.filter(l=>l.name!==currentList.name);
@@ -460,10 +466,12 @@ function selectList(name,data){
     history.replaceState(null, '', newUrl);
   } catch (e) { /* ignore if history not available */ }
 
-  document.title=name;
-  listName.textContent=name;
+  // Use title for display, name for file operations; fallback to name if title not present
   if(data){
     currentList=data;
+    const displayTitle = currentList.title || currentList.name;
+    document.title = displayTitle;
+    listName.textContent = displayTitle;
 
     // If this is a journal list and the JournalHelper is present,
     // ensure today's year/month/day section exists before rendering.
@@ -499,6 +507,9 @@ function selectList(name,data){
     })
     .then(d=>{
       currentList=d;
+      const displayTitle = currentList.title || currentList.name;
+      document.title = displayTitle;
+      listName.textContent = displayTitle;
 
       // ensure journal top path if needed
       if (window.JournalHelper && currentList?.type === 'journal') {
@@ -902,7 +913,8 @@ function renderIndex() {
       .then(list => {
         box.style.backgroundColor = list.bgColor || '#ffffff';
         box.style.color = getContrastColor(list.bgColor || '#ffffff');
-        box.innerHTML = `<strong>&nbsp;${list.name}</strong>`;  // list title
+        const displayTitle = list.title || list.name;
+        box.innerHTML = `<strong>&nbsp;${displayTitle}</strong>`;  // list title
 
         // render items below the title
         const itemsDiv = document.createElement('div');

@@ -219,7 +219,7 @@
       menu.appendChild(createSeparator());
       
       // ===== CURRENT LIST SECTION =====
-      addMenuHeader(menu, currentList.name);
+      addMenuHeader(menu, currentList.title || currentList.name);
       
       // Add Item to current list
       if (options.callbacks && typeof options.callbacks.addItemToList === 'function') {
@@ -299,7 +299,7 @@
     // list entries (exclude current list)
     switchLists.forEach(lst=>{
       const a = document.createElement('a');
-      a.textContent = lst.name;
+      a.textContent = lst.title || lst.name;
       a.href = `?l=${encodeURIComponent(lst.name)}`;
       a.style.display = 'block';
       a.style.padding = '4px 12px';
@@ -411,7 +411,8 @@
 
     // Add to … opens add-item dialog directly
     if (currentList && options.callbacks && typeof options.callbacks.addItemToList === 'function') {
-      addMenuItem(menu, `Add to ${currentList.name}…`, () => {
+      const displayTitle = currentList.title || currentList.name;
+      addMenuItem(menu, `Add to ${displayTitle}…`, () => {
         options.callbacks.addItemToList(options.menuButton || menu);
       });
     }
@@ -470,7 +471,8 @@
       // Delete action with type + name
       if (currentList) {
         const typeWord = (currentList.type === 'journal') ? 'Journal' : 'List';
-        addMenuItem(sm, `Delete ${typeWord} "${currentList.name}"`, options.callbacks.deleteCurrentList || (()=>{}));
+        const displayTitle = currentList.title || currentList.name;
+        addMenuItem(sm, `Delete ${typeWord} "${displayTitle}"`, options.callbacks.deleteCurrentList || (()=>{}));
       }
     });
 
