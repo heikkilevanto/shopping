@@ -19,7 +19,7 @@ const AddItemForm = (function() {
 
   function hide() {
     if (!addItemForm) return;
-    addItemForm.style.display = 'none';
+    addItemForm.classList.add('hidden');
     addItemContext = null;
   }
 
@@ -28,13 +28,6 @@ const AddItemForm = (function() {
     
     addItemForm = document.createElement('div');
     addItemForm.className = 'add-item-form';
-    addItemForm.style.position = 'absolute';
-    addItemForm.style.zIndex = '1200';
-    addItemForm.style.padding = '8px';
-    addItemForm.style.border = '1px solid #ccc';
-    addItemForm.style.borderRadius = '6px';
-    addItemForm.style.boxShadow = '0 2px 8px rgba(0,0,0,0.2)';
-    addItemForm.style.minWidth = '180px';
     addItemForm.onclick = e => e.stopPropagation();
 
     const row = document.createElement('div');
@@ -53,9 +46,7 @@ const AddItemForm = (function() {
 
     // Date input row (shown only for Journal Entry)
     const dateRow = document.createElement('div');
-    dateRow.style.display = 'none';
-    dateRow.style.alignItems = 'center';
-    dateRow.style.gap = '6px';
+    dateRow.className = 'add-item-date-row';
     const dateLabel = document.createElement('label');
     dateLabel.textContent = 'Date:';
     const dateInput = document.createElement('input');
@@ -66,10 +57,7 @@ const AddItemForm = (function() {
     addItemForm._dateInput = dateInput;
 
     const buttons = document.createElement('div');
-    buttons.style.display = 'flex';
-    buttons.style.justifyContent = 'space-between';
-    buttons.style.marginTop = '8px';
-    buttons.style.gap = '6px';
+    buttons.className = 'add-item-buttons';
 
     const topBtn = document.createElement('button');
     topBtn.type = 'button';
@@ -90,7 +78,7 @@ const AddItemForm = (function() {
     const addBtn = document.createElement('button');
     addBtn.type = 'button';
     addBtn.textContent = 'Add';
-    addBtn.style.display = 'none';
+    addBtn.className = 'add-item-add-btn';
     addItemForm._addBtn = addBtn;
     buttons.appendChild(addBtn);
 
@@ -143,10 +131,10 @@ const AddItemForm = (function() {
     function updateButtonsMode() {
       const val = addItemForm._typeSelect.value;
       const isJournal = (val === 'journal-entry');
-      addItemForm._dateRow.style.display = isJournal ? 'flex' : 'none';
+      addItemForm._dateRow.classList.toggle('show', isJournal);
       topBtn.style.display = isJournal ? 'none' : '';
       bottomBtn.style.display = isJournal ? 'none' : '';
-      addBtn.style.display = isJournal ? '' : 'none';
+      addBtn.classList.toggle('show', isJournal);
       if (isJournal && !addItemForm._dateInput.value) {
         addItemForm._dateInput.value = todayStr();
       }
@@ -155,10 +143,10 @@ const AddItemForm = (function() {
 
     document.addEventListener('click', (e) => {
       if (suppressNextAddItemDocClose) { suppressNextAddItemDocClose = false; return; }
-      if (addItemForm && addItemForm.style.display === 'block' && !addItemForm.contains(e.target)) hide();
+      if (addItemForm && !addItemForm.classList.contains('hidden') && !addItemForm.contains(e.target)) hide();
     });
     document.addEventListener('keydown', (e) => {
-      if (e.key === 'Escape' && addItemForm && addItemForm.style.display === 'block') hide();
+      if (e.key === 'Escape' && addItemForm && !addItemForm.classList.contains('hidden')) hide();
     });
 
     return addItemForm;
@@ -199,7 +187,7 @@ const AddItemForm = (function() {
     // Apply button visibility mode
     const updateEvt = new Event('change'); 
     sel.dispatchEvent(updateEvt);
-    form.style.display = 'block';
+    form.classList.remove('hidden');
 
     const anchorRect = anchor ? anchor.getBoundingClientRect() : null;
     const x = anchorRect ? anchorRect.left : 20;

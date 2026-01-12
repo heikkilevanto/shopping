@@ -96,6 +96,186 @@ body {
   gap: 0.5em;       /* space between preview boxes */
 }
 
+/* ===== Title Container (Header) ===== */
+#title-container {
+  display: flex;
+  align-items: center;
+  gap: 0.5em;
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  padding: 0.5em 0;
+}
+
+/* ===== Menu Button ===== */
+#menu-button {
+  padding: 0.15em 0.5em;
+}
+
+/* ===== List Name ===== */
+#list-name {
+  font-size: 1.5em;
+  font-weight: bold;
+}
+
+/* ===== List Status Indicator ===== */
+#list-status {
+  margin-left: 0.5em;
+  font-weight: normal;
+}
+
+/* ===== Error/Status Banner ===== */
+#error-banner {
+  display: none;
+  margin-left: auto;
+  padding: 0.2em 0.6em;
+  font-weight: bold;
+  border-radius: 4px;
+  background-color: #c00;
+  color: #fff;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+#error-banner.show {
+  display: flex;
+}
+
+#error-banner.info {
+  background-color: #d97706;
+}
+
+/* ===== Content Container ===== */
+#list-container {
+  margin-top: 0.5em;
+}
+
+/* ===== Drag-and-Drop Marker ===== */
+.drop-marker {
+  position: absolute;
+  height: 2px;
+  background: #06f;
+  box-shadow: 0 1px 0 rgba(0,0,0,0.1);
+  z-index: 9999;
+  pointer-events: none;
+}
+
+.drop-marker.hidden {
+  display: none;
+}
+
+/* ===== Inline Drop Line (during drag hover) ===== */
+.inline-drop-line {
+  height: 1px;
+  background: #aaa;
+  margin-top: 0.1em;
+  opacity: 0.6;
+}
+
+/* ===== Ghost Element (during drag) ===== */
+.drag-ghost {
+  position: fixed;
+  pointer-events: none;
+  opacity: 0.7;
+  z-index: 9998;
+}
+
+/* ===== Photo Item ===== */
+.photo-item img {
+  height: auto;
+  width: auto;
+  display: inline-block;
+  cursor: pointer;
+  margin-top: 0.25em;
+  margin-bottom: 0.25em;
+  vertical-align: top;
+  margin-left: 0.3em;
+}
+
+.photo-item img.large {
+  max-width: 50%;
+  max-height: 90vh;
+}
+
+.photo-item img.mobile {
+  max-width: calc(100% - 2.5em);
+  max-height: 90vh;
+}
+
+/* ===== Add Item Form ===== */
+.add-item-form {
+  position: absolute;
+  z-index: 1200;
+  padding: 8px;
+  border: 1px solid #ccc;
+  border-radius: 6px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+  min-width: 180px;
+  background-color: #fff;
+}
+
+.add-item-form.hidden {
+  display: none;
+}
+
+.add-item-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.add-item-buttons {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 8px;
+  gap: 6px;
+}
+
+.add-item-date-row {
+  display: none;
+  align-items: center;
+  gap: 6px;
+}
+
+.add-item-date-row.show {
+  display: flex;
+}
+
+.add-item-add-btn {
+  display: none;
+}
+
+.add-item-add-btn.show {
+  display: block;
+}
+
+/* ===== File Input ===== */
+.hidden-file-input {
+  display: none;
+}
+
+/* ===== Bullet/Drag Handle ===== */
+.drag-handle {
+  cursor: grab;
+  margin-right: 0.3em;
+  user-select: none;
+}
+
+.drag-handle.dragging {
+  opacity: 0.4;
+}
+
+/* ===== Section Collapse Toggle ===== */
+.section-toggle {
+  margin-right: 0.5em;
+}
+
+/* ===== Hidden Content ===== */
+.collapsed {
+  display: none;
+}
+
 /* ===== Responsive Design (Mobile) ===== */
 @media (max-width: 600px) {
   body {

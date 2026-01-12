@@ -21,13 +21,7 @@
 
   function createDropMarker() {
     const el = document.createElement('div');
-    el.style.position = 'absolute';
-    el.style.height = '2px';
-    el.style.background = '#06f';
-    el.style.boxShadow = '0 1px 0 rgba(0,0,0,0.1)';
-    el.style.zIndex = '9999';
-    el.style.pointerEvents = 'none';
-    el.style.display = 'none';
+    el.className = 'drop-marker';
     document.body.appendChild(el);
     return el;
   }
@@ -70,10 +64,6 @@
       lineEl.addEventListener('mouseenter', () => {
         if (!inlineLine) {
           inlineLine = document.createElement('div');
-          inlineLine.style.height = '1px';
-          inlineLine.style.background = '#aaa';
-          inlineLine.style.marginTop = '0.1em';
-          inlineLine.style.opacity = '0.6';
           inlineLine.className = 'inline-drop-line';
           lineEl.appendChild(inlineLine);
         }
@@ -103,9 +93,6 @@
       headerEl.addEventListener('mouseenter', () => {
         if (!inlineLine) {
           inlineLine = document.createElement('div');
-          inlineLine.style.height = '1px';
-          inlineLine.style.background = '#aaa';
-          inlineLine.style.opacity = '0.6';
           inlineLine.className = 'inline-drop-line';
           headerEl.appendChild(inlineLine);
         }
@@ -208,9 +195,9 @@
           });
 
           createGhost(state.draggedMeta.domNode || handleEl, startEvent);
-          if (state.dropMarker) state.dropMarker.style.display = 'block';
+          if (state.dropMarker) state.dropMarker.classList.remove('hidden');
           if (state.draggedMeta.domNode) {
-            state.draggedMeta.domNode.style.opacity = '0.4';
+            state.draggedMeta.domNode.classList.add('dragging');
           }
           window.addEventListener('pointermove', onPointerMove, true);
           window.addEventListener('pointerup', onPointerUp, true);
@@ -345,8 +332,8 @@
     // visual cleanup only
     _cleanupVisuals() {
       if (state.ghostEl && state.ghostEl.parentNode) state.ghostEl.parentNode.removeChild(state.ghostEl);
-      if (state.dropMarker) state.dropMarker.style.display = 'none';
-      if (state.draggedMeta && state.draggedMeta.domNode) state.draggedMeta.domNode.style.opacity = '';
+      if (state.dropMarker) state.dropMarker.classList.add('hidden');
+      if (state.draggedMeta && state.draggedMeta.domNode) state.draggedMeta.domNode.classList.remove('dragging');
       if (state.autoScrollTimer) { clearInterval(state.autoScrollTimer); state.autoScrollTimer = null; }
 
       state.dragActive = false;
@@ -361,10 +348,7 @@
   // Helpers outside api
   function createGhost(sourceDom, ev) {
     const ghost = (sourceDom && sourceDom.cloneNode(true)) || document.createElement('div');
-    ghost.style.position = 'fixed';
-    ghost.style.pointerEvents = 'none';
-    ghost.style.opacity = '0.7';
-    ghost.style.zIndex = '9998';
+    ghost.className = 'drag-ghost';
     ghost.style.left = (ev.clientX + 8) + 'px';
     ghost.style.top = (ev.clientY + 8) + 'px';
     document.body.appendChild(ghost);
@@ -389,7 +373,7 @@
       state.dropMarker.style.left = rect.left + 'px';
       state.dropMarker.style.width = rect.width + 'px';
       state.dropMarker.style.top = (rect.bottom - 2 + window.scrollY) + 'px';
-      state.dropMarker.style.display = 'block';
+      state.dropMarker.classList.remove('hidden');
       state.targetParentArray = typeof state.options.getRootItems === 'function' ? state.options.getRootItems() : null;
       state.targetIndex = state.targetParentArray ? state.targetParentArray.length : null;
       console.debug('computeAndShowTarget: over container (end)', { targetParentArray: describeArray(state.targetParentArray), targetIndex: state.targetIndex });
@@ -409,7 +393,7 @@
         state.dropMarker.style.left = rect.left + 'px';
         state.dropMarker.style.width = rect.width + 'px';
         state.dropMarker.style.top = topPos + 'px';
-        state.dropMarker.style.display = 'block';
+        state.dropMarker.classList.remove('hidden');
         console.debug('computeAndShowTarget: on .line', { lineItem: describeNode(lineEl._item), parentArray: describeArray(parentArray), targetIndex: insertIndex });
         return;
       }
@@ -425,7 +409,7 @@
         state.dropMarker.style.left = headerRect.left + 'px';
         state.dropMarker.style.width = headerRect.width + 'px';
         state.dropMarker.style.top = (headerRect.bottom + window.scrollY) + 'px';
-        state.dropMarker.style.display = 'block';
+        state.dropMarker.classList.remove('hidden');
         console.debug('computeAndShowTarget: on .section', { section: describeNode(section), targetParentArray: describeArray(state.targetParentArray), targetIndex: state.targetIndex });
         return;
       }

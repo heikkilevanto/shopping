@@ -23,47 +23,27 @@ body.appendChild(appContainer);
 
 // Top line: title + menu button
 const titleContainer = document.createElement('div');
-titleContainer.style.display = 'flex';
-titleContainer.style.alignItems = 'center';
-titleContainer.style.gap = '0.5em';
-titleContainer.style.position = 'sticky';
-titleContainer.style.top = '0';
-titleContainer.style.zIndex = '100';
-titleContainer.style.padding = '0.5em 0';
+titleContainer.id = 'title-container';
 // Background and text color are applied dynamically in render()
 appContainer.appendChild(titleContainer);
 
 const menuButton = document.createElement('button');
+menuButton.id = 'menu-button';
 menuButton.textContent = '☰';
 menuButton.type = 'button';
-menuButton.style.padding = '0.15em 0.5em';
 titleContainer.appendChild(menuButton);
 
 const listName = document.createElement('span');
 listName.id = 'list-name';
-listName.style.fontSize = '1.5em';
-listName.style.fontWeight = 'bold';
 titleContainer.appendChild(listName);
 
 const listStatus = document.createElement('span');
-listStatus.style.marginLeft = '0.5em';
-listStatus.style.fontWeight = 'normal';
-//listStatus.style.color = '#c00';  // red for modified
+listStatus.id = 'list-status';
 titleContainer.appendChild(listStatus);
 
 // Top-line error/status banner
 const errorBanner = document.createElement('div');
 errorBanner.id = 'error-banner';
-errorBanner.style.display = 'none';
-errorBanner.style.marginLeft = 'auto';
-errorBanner.style.padding = '0.2em 0.6em';
-errorBanner.style.fontWeight = 'bold';
-errorBanner.style.borderRadius = '4px';
-errorBanner.style.backgroundColor = '#c00';
-errorBanner.style.color = '#fff';
-errorBanner.style.whiteSpace = 'nowrap';
-errorBanner.style.overflow = 'hidden';
-errorBanner.style.textOverflow = 'ellipsis';
 titleContainer.appendChild(errorBanner);
 
 
@@ -89,13 +69,13 @@ function updateStatus() {
 function setBanner(message, type = 'error') {
   if (!message) return clearBanner();
   errorBanner.textContent = message;
-  errorBanner.style.display = 'flex';
-  errorBanner.style.backgroundColor = type === 'info' ? '#d97706' : '#c00';
+  errorBanner.classList.add('show');
+  errorBanner.classList.toggle('info', type === 'info');
 }
 
 function clearBanner() {
   errorBanner.textContent = '';
-  errorBanner.style.display = 'none';
+  errorBanner.classList.remove('show', 'info');
 }
 
 function sanitizeListName(rawName) {
@@ -604,9 +584,7 @@ function renderItem(container,item,parentItems,parentSection){
     // Render photo items with camera icon as drag handle
     const bullet = document.createElement('span');
     bullet.textContent = '📷';
-    bullet.style.cursor = 'grab';
-    bullet.style.marginRight = '0.3em';
-    bullet.style.userSelect = 'none';
+    bullet.classList.add('drag-handle');
     line.appendChild(bullet);
 
     // Register the bullet as the drag handle for photos
@@ -627,9 +605,7 @@ function renderItem(container,item,parentItems,parentSection){
     // For text items, add a bullet point as drag handle
     const bullet = document.createElement('span');
     bullet.textContent = '•';
-    bullet.style.cursor = 'grab';
-    bullet.style.marginRight = '0.3em';
-    bullet.style.userSelect = 'none';
+    bullet.classList.add('drag-handle');
     line.appendChild(bullet);
 
     // Register the bullet as the drag handle for text items
@@ -748,7 +724,7 @@ function renderSection(container,section,parentSections,parentEffectiveFilter){
   const toggleBtn = document.createElement('button');
   if ( currentList ) {
       toggleBtn.textContent = section.collapsed ? '[+]' : '[-]';
-      toggleBtn.style.marginRight = '0.5em';
+      toggleBtn.className = 'section-toggle';
       toggleBtn.type = 'button';
 
       toggleBtn.onclick = e => {
@@ -812,7 +788,7 @@ function renderSection(container,section,parentSections,parentEffectiveFilter){
   header.appendChild(title);
   sec.appendChild(header);
   const body=document.createElement('div');
-  body.style.display=section.collapsed?'none':'block';
+  if (section.collapsed) body.classList.add('collapsed');
   sec.appendChild(body);
   container.appendChild(sec);
   const childFilter = section.filter && section.filter !== '' ? section.filter : parentEffectiveFilter;

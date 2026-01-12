@@ -16,7 +16,7 @@ function initPhotoModule() {
   photoFileInput.name = 'photo'; 
   photoFileInput.accept = 'image/*';
   photoFileInput.capture = 'environment';
-  photoFileInput.style.display = 'none';
+  photoFileInput.className = 'hidden-file-input';
   photoFileInput.value = '';
   document.body.appendChild(photoFileInput);
 
@@ -153,16 +153,11 @@ function renderPhotoItem(line, item) {
   img.src = '/shopping/photo.cgi/' + 'heikki' + '/' + item.filename;  // TODO: use actual username
   img.alt = 'Photo: ' + item.filename;
   // Account for bullet (~1.5em) and margins. On mobile, reduce to ~70% to ensure it fits; on desktop, use 50%
-  img.style.maxWidth = window.innerWidth > 768 ? '50%' : 'calc(100% - 2.5em)';
-  img.style.maxHeight = '90vh';  // Limit to 90% of viewport height
-  img.style.height = 'auto';
-  img.style.width = 'auto';
-  img.style.display = 'inline-block';
-  img.style.cursor = 'pointer';
-  img.style.marginTop = '0.25em';
-  img.style.marginBottom = '0.25em';
-  img.style.verticalAlign = 'top';
-  img.style.marginLeft = '0.3em';
+  if (window.innerWidth > 768) {
+    img.classList.add('large');
+  } else {
+    img.classList.add('mobile');
+  }
   
   img.onclick = function(e) {
     e.stopPropagation();
