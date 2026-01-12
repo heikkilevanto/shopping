@@ -643,6 +643,15 @@ function renderItem(container,item,parentItems,parentSection){
     if(e.key==='Enter'){
       e.preventDefault();
       let text = span.textContent.replace(/\r?\n/g, ' ').trim();
+      // Delete the line if it has no text (except whitespace) and it's not the only item
+      if(text==='' && parentItems.length>1){
+        const idx=parentItems.indexOf(item);
+        if(idx>=0) parentItems.splice(idx,1);
+        focusItem=parentItems[Math.min(idx,parentItems.length-1)]||null;
+        render();
+        scheduleSave();
+        return;
+      }
       if(text===''){ span.blur(); return; }
       if(text.startsWith('o ') ||text.startsWith('☐') ){
         item.type='item';
@@ -697,14 +706,6 @@ function renderItem(container,item,parentItems,parentSection){
   };
   span.oninput=()=>{
     const currentText=span.textContent.trim();
-    if(currentText==='' && parentItems.length>1){
-      const idx=parentItems.indexOf(item);
-      if(idx>=0) parentItems.splice(idx,1);
-      focusItem=parentItems[Math.min(idx,parentItems.length-1)]||null;
-      render();
-      scheduleSave();
-      return;
-    }
     item.text=currentText;
     scheduleSave();
   };
