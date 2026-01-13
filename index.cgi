@@ -39,6 +39,7 @@ scriptlink("util.js");
 scriptlink("state.js");
 scriptlink("storage.js");
 scriptlink("list-operations.js");
+scriptlink("rendering.js");
 scriptlink("drag.js");
 scriptlink("menu.js");
 scriptlink("journal.js");

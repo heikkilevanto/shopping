@@ -6,65 +6,12 @@
 
 // Note: State management moved to state.js
 // Access state via State.getCurrentList(), State.setFocusItem(), etc.
+// Note: DOM creation and rendering moved to rendering.js
+// Access via Rendering.render(), Rendering.renderIndex(), etc.
 
-// ================= Build page =================
-const body = document.body;
-
-// App container
-const appContainer = document.createElement('div');
-body.appendChild(appContainer);
-
-// Top line: title + menu button
-const titleContainer = document.createElement('div');
-titleContainer.id = 'title-container';
-// Background and text color are applied dynamically in render()
-appContainer.appendChild(titleContainer);
-
-const menuButton = document.createElement('button');
-menuButton.id = 'menu-button';
-menuButton.textContent = '☰';
-menuButton.type = 'button';
-titleContainer.appendChild(menuButton);
-
-const listName = document.createElement('span');
-listName.id = 'list-name';
-listName.contentEditable = true;
-listName.onkeydown = e => {
-  if (e.key === 'Enter') {
-    e.preventDefault();
-    listName.blur();
-  }
-};
-listName.oninput = () => {
-  const currentList = State.getCurrentList();
-  if (!currentList) return;
-  const newTitle = listName.textContent.trim();
-  if (newTitle && currentList.title !== newTitle) {
-    currentList.title = newTitle;
-    document.title = newTitle + (listStatus.textContent || '');
-    Storage.scheduleSave();
-  }
-};
-titleContainer.appendChild(listName);
-
-const listStatus = document.createElement('span');
-listStatus.id = 'list-status';
-titleContainer.appendChild(listStatus);
-
-// Top-line error/status banner
-const errorBanner = document.createElement('div');
-errorBanner.id = 'error-banner';
-titleContainer.appendChild(errorBanner);
-
-
-// Container for list items
-const container = document.createElement('div');
-container.id = 'list-container';
-container.style.marginTop = '0.5em';
-appContainer.appendChild(container);
-
-// Initialize State module with DOM elements
-State.initDOMElements(listStatus, errorBanner);
+// ================= Get references from Rendering module =================
+// These are created by rendering.js and exposed via window.Rendering
+// No need to redeclare - just use Rendering.appContainer, Rendering.menuButton, etc. directly
 
 // ================= Utility =================
 // Note: sanitizeListName, saveCurrentList, scheduleSave moved to storage.js
@@ -107,367 +54,9 @@ function initMenuIntegration(){
 // createJournalEntryForDate, sortJournal, sortSection, toggleSortOrder, deleteSection,
 // expandAll, collapseAll, clearAllFilters, selectList
 
-// ================= Render =================
-// Note: resolveFilter and focusEditable moved to util.js
-
-// Render item
-function renderItem(container,item,parentItems,parentSection){
-  const line=document.createElement('div');
-  line.className='line';
-  line._item = item;
-  line._parentItems = parentItems;
-  if(item.type==='item'){
-    const cb=document.createElement('input');
-    cb.type='checkbox';
-    cb.checked=item.checked;
-    cb.onchange=()=>{
-      item.checked=cb.checked;
-      State.setFocusItem(parentSection);
-      render(); // so the filters take effect
-      Storage.scheduleSave();
-    };
-    line.appendChild(cb);
-
-    // Register the checkbox as the drag handle for items (drag.js should start only when dragging from this checkbox)
-    if (typeof drag !== 'undefined' && drag.registerDragHandle) {
-      drag.registerDragHandle(cb, { type: 'item', itemOrSection: item, parentArray: parentItems, domNode: line });
-    }
-  } else if (item.type === 'photo') {
-    // Render photo items with camera icon as drag handle
-    const bullet = document.createElement('span');
-    bullet.textContent = '📷';
-    bullet.classList.add('drag-handle');
-    line.appendChild(bullet);
-
-    // Register the bullet as the drag handle for photos
-    if (typeof drag !== 'undefined' && drag.registerDragHandle) {
-      drag.registerDragHandle(bullet, { type: 'item', itemOrSection: item, parentArray: parentItems, domNode: line });
-    }
-
-    if (typeof renderPhotoItem !== 'undefined') {
-      renderPhotoItem(line, item);
-    }
-    // Register per-line hover and pointer handlers for showing inline drop line and accepting drops
-    if (typeof drag !== 'undefined' && drag.registerLine) {
-      drag.registerLine(line);
-    }
-    container.appendChild(line);
-    return;
-  } else {
-    // For text items, add a bullet point as drag handle
-    const bullet = document.createElement('span');
-    bullet.textContent = '•';
-    bullet.classList.add('drag-handle');
-    line.appendChild(bullet);
-
-    // Register the bullet as the drag handle for text items
-    if (typeof drag !== 'undefined' && drag.registerDragHandle) {
-      drag.registerDragHandle(bullet, { type: 'item', itemOrSection: item, parentArray: parentItems, domNode: line });
-    }
-  }
-  
-  const span=document.createElement('span');
-  span.className='line-text';
-  span.textContent=item.text;
-  span.contentEditable=true;
-  span._item=item;
-
-  span.onkeydown=e=>{
-    if(e.key==='Enter'){
-      e.preventDefault();
-      let text = span.textContent.replace(/\r?\n/g, ' ').trim();
-      // Delete the line if it has no text (except whitespace) and it's not the only item
-      if(text==='' && parentItems.length>1){
-        const idx=parentItems.indexOf(item);
-        if(idx>=0) parentItems.splice(idx,1);
-        State.setFocusItem(parentItems[Math.min(idx,parentItems.length-1)]||null);
-        render();
-        Storage.scheduleSave();
-        return;
-      }
-      if(text===''){ span.blur(); return; }
-      if(text.startsWith('o ') ||text.startsWith('☐') ){
-        item.type='item';
-        item.checked=false;
-        text=text.slice(2).trim();
-      } else if(text.startsWith('x ')||text.startsWith('☑ ') ){
-        item.type='item';
-        item.checked=true;
-        text=text.slice(2).trim();
-      } else if(text.startsWith('.')) {
-        item.type='text';
-        text=text.slice(2).trim();
-      } else if(text === 'p' || text === 'P'){
-        // Photo capture: clear this line, store insertion context, trigger capture
-        const idx = parentItems.indexOf(item);
-        item.text = '';  // Clear the 'P' text but keep the line
-        item.type = 'text';  // Ensure it's a text line
-        // Store insertion context for photo.js - insert at current position (above this line)
-        if (typeof photoInsertContext !== 'undefined') {
-          photoInsertContext = { parentItems: parentItems, index: idx, emptyLineItem: item };
-        }
-        if (typeof capturePhoto !== 'undefined') {
-          capturePhoto();
-        }
-        State.setFocusItem(item);  // Focus stays on the cleared line
-        render();
-        Storage.scheduleSave();
-        return;  // IMPORTANT: return early, do NOT create a new line
-      } else if(text.startsWith('s ')){
-        const idx = parentItems.indexOf(item);
-        const newSection = {
-          type: 'section',
-          title: text.slice(2).trim(),
-          collapsed: false,
-          items: [{ type: 'item', text: '', checked: false }],
-          filter: ''
-        };
-        parentItems.splice(idx, 1, newSection);
-        State.setFocusItem(newSection.items[0]);
-        render();
-        Storage.scheduleSave();
-        return;  // stop further processing
-      }
-      item.text=text;
-      const newItem={type:item.type,text:"",checked:false};
-      const idx=parentItems.indexOf(item);
-      parentItems.splice(idx+1,0,newItem);
-      State.setFocusItem(newItem);
-      render();
-      Storage.scheduleSave();
-    }
-  };
-  span.oninput=()=>{
-    const currentText=span.textContent.replace(/\r?\n/g, ' ').trim();
-    item.text=currentText;
-    Storage.scheduleSave();
-  };
-  // Handle paste: replace newlines with spaces to prevent words from merging
-  span.onpaste = e => {
-    e.preventDefault();
-    const text = (e.clipboardData || window.clipboardData).getData('text');
-    const processedText = text.replace(/\r?\n/g, ' ');
-    document.execCommand('insertText', false, processedText);
-  };
-  // Prevent native drag-drop into contentEditable text (use custom drag system only)
-  span.ondragover = e => e.preventDefault();
-  span.ondrop = e => e.preventDefault();
-  
-  line.appendChild(span);
-
-  // Register per-line hover and pointer handlers for showing inline drop line and accepting drops
-  if (typeof drag !== 'undefined' && drag.registerLine) {
-    drag.registerLine(line);
-  }
-
-  container.appendChild(line);
-}
-
-// Render section
-function renderSection(container,section,parentSections,parentEffectiveFilter){
-  const sec=document.createElement('div');
-  sec.className='section';
-  sec.style.backgroundColor = section.bgColor || '';
-  sec.style.padding = '0.3em';   // optional padding
-  sec.style.borderRadius = '4px'; // optional rounding for nicer look
-
-  const header=document.createElement('div');
-  header.className='section-header';
-  const toggleBtn = document.createElement('button');
-  if ( State.getCurrentList() ) {
-      toggleBtn.textContent = section.collapsed ? '[+]' : '[-]';
-      toggleBtn.className = 'section-toggle';
-      toggleBtn.type = 'button';
-
-      toggleBtn.onclick = e => {
-        e.stopPropagation();
-        if (e.detail === 2) {
-          section.collapsed = !section.collapsed;
-          State.setFocusItem(section);
-          render();
-          Storage.scheduleSave();
-          ListOps.hideAppMenus();
-        } else {
-          if (window.Menu && Menu.showSectionMenu) Menu.showSectionMenu(section, toggleBtn);
-        }
-      };
-
-    header.appendChild(toggleBtn);
-  }
-
-  const title=document.createElement('span');
-  title.className='title';
-  title.textContent=section.title;
-  title.contentEditable=true;
-  title._section=section;
-  title.onkeydown = e => {
-    if (e.key !== 'Enter') return;
-    e.preventDefault();
-    const t = title.textContent.trim();
-    section.title = t;
-    Storage.scheduleSave();
-
-    // ensure at least one item exists and first is not a section
-    if (section.items.length === 0 || section.items[0].type === 'section') {
-      const newItem = { type: 'item', text: '', checked: false };
-      section.items.unshift(newItem);
-      State.setFocusItem(newItem);
-    } else {
-      State.setFocusItem(section.items[0]);
-    }
-
-    // add new section below if this is last
-    const idx = parentSections.indexOf(section);
-    if (idx === parentSections.length - 1 && t !== '') {
-      parentSections.push({
-        type: 'section',
-        title: '',
-        collapsed: false,
-        items: [{ type: 'item', text: '', checked: false }]
-      });
-    }
-
-    render();
-  };
-
-  title.oninput = () => {
-    const t = title.textContent.trim();
-    if (section.title !== t) {
-      section.title = t;
-      Storage.scheduleSave();
-    }
-  };
-  header.appendChild(title);
-  sec.appendChild(header);
-  const body=document.createElement('div');
-  if (section.collapsed) body.classList.add('collapsed');
-  sec.appendChild(body);
-  container.appendChild(sec);
-  const childFilter = section.filter && section.filter !== '' ? section.filter : parentEffectiveFilter;
-  renderItems(body, section.items, section.items, childFilter, section);
-
-  // Register section header for drop behavior and mark header with references for drag module
-  // attach references for drag computations
-  header._section = section;
-  header._parentSections = parentSections;
-  if (typeof drag !== 'undefined' && drag.registerSectionHeader) {
-    drag.registerSectionHeader(header);
-  }
-
-  // Register toggle button as the section drag handle
-  if (typeof drag !== 'undefined' && drag.registerDragHandle && State.getCurrentList()) {
-    drag.registerDragHandle(toggleBtn, { type: 'section', itemOrSection: section, parentArray: parentSections, domNode: sec });
-  }
-
-  if(section.title.trim()==='' && State.getFocusItem()===null) State.setFocusItem(section);
-}
-
-// Render items recursively
-function renderItems(container, items, parentItems, effectiveFilter = 'all', parentSection) {
-  container.innerHTML = '';
-  items.forEach(item => {
-    if (item.type === 'section') {
-      // compute section’s filter: use own filter if set, otherwise inherit
-      const secFilter = item.filter && item.filter !== '' ? item.filter : effectiveFilter;
-      renderSection(container, item, parentItems, secFilter);
-    } else {
-      if (effectiveFilter === 'checked' && !item.checked) return;
-      if (effectiveFilter === 'unchecked' && item.checked) return;
-      renderItem(container, item, parentItems);
-    }
-  });
-}
-
-// Main render
-function render(target){
-  const currentList = State.getCurrentList();
-  if (!target) {
-    document.body.style.backgroundColor = currentList.bgColor || '#ffffff';
-    document.body.style.color = Util.getContrastColor(currentList.bgColor || '#ffffff');
-    // Keep the top line matching the list background and contrast
-    if (titleContainer) {
-      titleContainer.style.backgroundColor = currentList.bgColor || '#ffffff';
-      titleContainer.style.color = Util.getContrastColor(currentList.bgColor || '#ffffff');
-    }
-    target = container;
-  } else {
-    target.style.backgroundColor = currentList.bgColor || '#ffffff';
-    target.style.color = Util.getContrastColor(currentList.bgColor || '#ffffff');
-  }
-  renderItems(target,currentList.items,currentList.items, currentList.filter || 'all');
-  const focusItem = State.getFocusItem();
-  if (focusItem) {
-    const lines = target.querySelectorAll('.line-text');
-    const titles = target.querySelectorAll('.section-header .title');
-    let focused = false;
-    for (const l of lines) {
-      if (l._item === focusItem) { 
-        // Defer focus to next frame to let layout settle before focusing
-        requestAnimationFrame(() => {
-          Util.focusEditable(l);
-          l.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-        });
-        focused = true; 
-        break; 
-      }
-    }
-    if (!focused) {
-      for (const t of titles) {
-        if (t._section === focusItem) { 
-          Util.focusEditable(t);
-          t.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-          break;
-        }
-      }
-    }
-    State.setFocusItem(null);
-  }
-
-}
-
-// ==================== Index page =========================
-function renderIndex() {
-  appContainer.innerHTML = '<h1>' + currentUser + "'s lists</h1>";
-  document.body.style.backgroundColor = "#444";
-  document.body.style.color = "#ccc";
-  State.setCurrentList(null);  // indicator for not menyu buttons
-
-  Util.setListFavicon(currentUser, document.body.style.color);
-
-  const index = document.createElement('div');
-  index.id = 'list-index';
-
-  const allLists = State.getAllLists();
-  for (const l of allLists) {
-    const link = document.createElement('a');
-    link.href = `?l=${encodeURIComponent(l.name)}`;
-    link.style.display = 'block';
-    link.style.textDecoration = 'none';
-    link.className = 'list-link';
-
-    const box = document.createElement('div');
-    box.className = 'list-preview';
-    box.style.pointerEvents = 'none'; // disables clicks inside preview
-
-    link.appendChild(box);
-    index.appendChild(link);
-
-    fetch(`/shopping/api.cgi/${l.name}`)
-      .then(r => r.json())
-      .then(list => {
-        box.style.backgroundColor = list.bgColor || '#ffffff';
-        box.style.color = Util.getContrastColor(list.bgColor || '#ffffff');
-        const displayTitle = list.title || list.name;
-        box.innerHTML = `<strong>&nbsp;${displayTitle}</strong>`;  // list title
-
-        // render items below the title
-        const itemsDiv = document.createElement('div');
-        box.appendChild(itemsDiv);
-        renderItems(itemsDiv, list.items, list.items, 'unchecked');
-      });
-  }
-  appContainer.appendChild(index);
-}
+// ================= Rendering =================
+// Note: All rendering functions moved to rendering.js
+// Access via Rendering.render(), Rendering.renderIndex(), Rendering.renderItem(), etc.
 
 // ================= Public API =================
 // Expose functions for other modules to use instead of callbacks
@@ -478,11 +67,11 @@ window.ShoppingApp = {
   setFocusItem: State.setFocusItem,
   
   // DOM elements
-  container,
-  menuButton,
+  container: Rendering.container,
+  menuButton: Rendering.menuButton,
   
   // Core functions
-  render,
+  render: Rendering.render,
   scheduleSave: Storage.scheduleSave,
   
   // List operations - delegate to ListOps (with render/save wrappers where needed)
@@ -490,27 +79,27 @@ window.ShoppingApp = {
   indexLink: ListOps.indexLink,
   createNewList: ListOps.createNewList,
   deleteCurrentList: ListOps.deleteCurrentList,
-  uncheckAll: () => { ListOps.uncheckAll(); render(); Storage.scheduleSave(); },
-  expandAll: () => { ListOps.expandAll(); render(); Storage.scheduleSave(); },
-  collapseAll: () => { ListOps.collapseAll(); render(); Storage.scheduleSave(); },
-  clearAllFilters: () => { ListOps.clearAllFilters(); render(); Storage.scheduleSave(); },
+  uncheckAll: () => { ListOps.uncheckAll(); Rendering.render(); Storage.scheduleSave(); },
+  expandAll: () => { ListOps.expandAll(); Rendering.render(); Storage.scheduleSave(); },
+  collapseAll: () => { ListOps.collapseAll(); Rendering.render(); Storage.scheduleSave(); },
+  clearAllFilters: () => { ListOps.clearAllFilters(); Rendering.render(); Storage.scheduleSave(); },
   hideAppMenus: ListOps.hideAppMenus,
   
   // Journal operations - delegate to ListOps (with render/save wrappers where needed)
-  toggleListType: () => { ListOps.toggleListType(); render(); Storage.scheduleSave(); },
+  toggleListType: () => { ListOps.toggleListType(); Rendering.render(); Storage.scheduleSave(); },
   createJournalEntryForDate: (dateStr) => { 
     const result = ListOps.createJournalEntryForDate(dateStr); 
-    if (result) { render(); Storage.scheduleSave(); }
+    if (result) { Rendering.render(); Storage.scheduleSave(); }
   },
-  sortJournal: () => { ListOps.sortJournal(); render(); Storage.scheduleSave(); },
+  sortJournal: () => { ListOps.sortJournal(); Rendering.render(); Storage.scheduleSave(); },
   sortSection: (section) => { 
     const result = ListOps.sortSection(section); 
-    if (result) { render(); Storage.scheduleSave(); }
+    if (result) { Rendering.render(); Storage.scheduleSave(); }
   },
-  toggleSortOrder: () => { ListOps.toggleSortOrder(); render(); Storage.scheduleSave(); },
+  toggleSortOrder: () => { ListOps.toggleSortOrder(); Rendering.render(); Storage.scheduleSave(); },
   deleteSection: (section) => { 
     const result = ListOps.deleteSection(section); 
-    if (result) { render(); Storage.scheduleSave(); }
+    if (result) { Rendering.render(); Storage.scheduleSave(); }
   },
   
   // Helper functions used by Menu - delegate to ListOps
@@ -522,7 +111,7 @@ window.ShoppingApp = {
     const currentList = State.getCurrentList();
     if (!currentList) return;
     currentList.bgColor = bg;
-    render();
+    Rendering.render();
     Storage.scheduleSave();
     if (window.Menu && Menu.hideMenus) Menu.hideMenus();
   },
@@ -532,7 +121,7 @@ window.ShoppingApp = {
     if (!currentList) return;
     const defaultType = (currentList?.type === 'journal') ? 'journal-entry' : 'checkbox';
     if (typeof AddItemForm !== 'undefined' && AddItemForm.show) {
-      AddItemForm.show(currentList.items, { parentSection: null, anchor: anchor || menuButton, defaultType });
+      AddItemForm.show(currentList.items, { parentSection: null, anchor: anchor || Rendering.menuButton, defaultType });
     }
   },
   
@@ -598,7 +187,7 @@ fetch('/shopping/api.cgi/')
     const want = params.get('l');   // null if not present
 
     if ( !want ) {
-      renderIndex();
+      Rendering.renderIndex();
       if (window.Menu && Menu.setAllLists) Menu.setAllLists(ListOps.getRecentListsForMenu());
       return;
     }
