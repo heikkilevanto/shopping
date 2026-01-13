@@ -68,25 +68,7 @@ State.initDOMElements(listStatus, errorBanner);
 
 // ================= Utility =================
 // Note: sanitizeListName, saveCurrentList, scheduleSave moved to storage.js
-// Access via Storage.Storage.sanitizeListName(), Storage.Storage.saveCurrentList(), Storage.Storage.scheduleSave()
-
-// Helper: Get the effective background color for a section (walks up parent chain)
-function getEffectiveBgColor(section){
-  const currentList = State.getCurrentList();
-  if (!currentList) return '#ffffff';
-  if (!section) return currentList.bgColor || '#ffffff';
-  if (section.bgColor) return section.bgColor;
-  
-  // Walk up to find a parent with a color
-  let parent = Util.findParentSection(currentList.items, section);
-  while (parent) {
-    if (parent.bgColor) return parent.bgColor;
-    parent = Util.findParentSection(currentList.items, parent);
-  }
-  
-  // Fall back to list color
-  return currentList.bgColor || '#ffffff';
-}
+// Note: getEffectiveBgColor, traverseSections, resolveFilter, focusEditable moved to util.js
 
 // ============== Add-item helper UI ==============
 // Handled by add-item.js module
@@ -123,10 +105,10 @@ function getRecentListsForMenu() {
 // Helper to call Menu.hideMenus() if available
 function hideAppMenus(){ if (window.Menu && Menu.hideMenus) Menu.hideMenus(); }
 
-// ============== Section menu actions that used to rely on hideMenus ================
+// ============== Section menu actions ================
 function uncheckAll() {
   const currentList = State.getCurrentList();
-  traverseSections(currentList.items, null, it => {
+  Util.Util.traverseSections(currentList.items, null, it => {
     if (it.type === 'item') {
       it.checked = false;
     }
@@ -324,39 +306,22 @@ function deleteSection(section) {
   Storage.scheduleSave();
 }
 
-// Helper to recurse through a section, and do something for each
-// section we meet and/or each item we meet.
-// Finally render and schedule a save, if requested
-function traverseSections(items, secFn = null, itFn = null, doRender=true) {
-  items.forEach(item => {
-    if (item.type === 'section') {
-      if (secFn) secFn(item);
-      traverseSections(item.items, secFn, itFn, false); // recurse into subsections
-        // without rendering on every level
-    } else if ( item.type  === 'item' ) {
-      if (itFn) itFn(item);
-    }
-  });
-  if (doRender) {
-    render();
-    Storage.scheduleSave();
-  }
-}
+// Helper functions moved to util.js
 
 function expandAll() {
   const currentList = State.getCurrentList();
-  traverseSections(currentList.items, sec => sec.collapsed = false);
+  Util.Util.traverseSections(currentList.items, sec => sec.collapsed = false);
 }
 
 function collapseAll() {
   const currentList = State.getCurrentList();
-  traverseSections(currentList.items, sec => sec.collapsed = true);
+  Util.traverseSections(currentList.items, sec => sec.collapsed = true);
 }
 
 function clearAllFilters() {
   const currentList = State.getCurrentList();
   currentList.filter = "",
-  traverseSections(currentList.items, sec => sec.filter = '');
+  Util.traverseSections(currentList.items, sec => sec.filter = '');
 }
 
 // ================= List selection =================
@@ -444,34 +409,7 @@ function selectList(name,data){
 }
 
 // ================= Render =================
-function resolveFilter(section, parentSections) {
-  const currentList = State.getCurrentList();
-  let sec = section;
-  let filter = sec?.filter || '';
-  let parents = parentSections || [];
-  let idx = parents.indexOf(sec);
-  while (filter === '' && idx > -1) {
-    // move up to parent section if exists
-    sec = parents[idx]._parentSection;
-    if (!sec) break;
-    filter = sec.filter || '';
-    parents = sec._parentSections || [];
-    idx = parents.indexOf(sec);
-  }
-  return filter || currentList?.filter || 'all';
-
-}
-
-
-
-function focusEditable(el){
-  el.focus();
-  const sel=window.getSelection();
-  sel.removeAllRanges();
-  const range=document.createRange();
-  range.selectNodeContents(el);
-  sel.addRange(range);
-}
+// Note: resolveFilter and focusEditable moved to util.js
 
 // Render item
 function renderItem(container,item,parentItems,parentSection){
@@ -767,7 +705,7 @@ function render(target){
       if (l._item === focusItem) { 
         // Defer focus to next frame to let layout settle before focusing
         requestAnimationFrame(() => {
-          focusEditable(l);
+          Util.focusEditable(l);
           l.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
         });
         focused = true; 
@@ -777,7 +715,7 @@ function render(target){
     if (!focused) {
       for (const t of titles) {
         if (t._section === focusItem) { 
-          focusEditable(t);
+          Util.focusEditable(t);
           t.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
           break;
         }
@@ -848,7 +786,7 @@ window.ShoppingApp = {
   render,
   scheduleSave: Storage.scheduleSave,
   selectList,
-  getEffectiveBgColor,
+  getEffectiveBgColor: Util.getEffectiveBgColor,
   hideAppMenus,
   
   // List operations

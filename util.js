@@ -114,5 +114,71 @@ window.Util = {
       document.head.appendChild(link);
     }
     link.href = canvas.toDataURL('image/png');
+  },
+
+  // Get the effective background color for a section (walks up parent chain)
+  getEffectiveBgColor(section) {
+    const currentList = State.getCurrentList();
+    if (!currentList) return '#ffffff';
+    if (!section) return currentList.bgColor || '#ffffff';
+    if (section.bgColor) return section.bgColor;
+    
+    // Walk up to find a parent with a color
+    let parent = this.findParentSection(currentList.items, section);
+    while (parent) {
+      if (parent.bgColor) return parent.bgColor;
+      parent = this.findParentSection(currentList.items, parent);
+    }
+    
+    // Fall back to list color
+    return currentList.bgColor || '#ffffff';
+  },
+
+  // Helper to recurse through sections and do something for each section and/or item
+  // Finally render and schedule a save, if requested
+  traverseSections(items, secFn = null, itFn = null, doRender = true) {
+    items.forEach(item => {
+      if (item.type === 'section') {
+        if (secFn) secFn(item);
+        this.traverseSections(item.items, secFn, itFn, false); // recurse without rendering
+      } else if (item.type === 'item') {
+        if (itFn) itFn(item);
+      }
+    });
+    if (doRender) {
+      // Delegate to ShoppingApp for render and scheduleSave
+      if (window.ShoppingApp) {
+        if (ShoppingApp.render) ShoppingApp.render();
+        if (ShoppingApp.scheduleSave) ShoppingApp.scheduleSave();
+      }
+    }
+  },
+
+  // Resolve the effective filter for a section by walking up the parent chain
+  resolveFilter(section, parentSections) {
+    const currentList = State.getCurrentList();
+    let sec = section;
+    let filter = sec?.filter || '';
+    let parents = parentSections || [];
+    let idx = parents.indexOf(sec);
+    while (filter === '' && idx > -1) {
+      // move up to parent section if exists
+      sec = parents[idx]._parentSection;
+      if (!sec) break;
+      filter = sec.filter || '';
+      parents = sec._parentSections || [];
+      idx = parents.indexOf(sec);
+    }
+    return filter || currentList?.filter || 'all';
+  },
+
+  // Focus an editable element and select all its contents
+  focusEditable(el) {
+    el.focus();
+    const sel = window.getSelection();
+    sel.removeAllRanges();
+    const range = document.createRange();
+    range.selectNodeContents(el);
+    sel.addRange(range);
   }
 };
