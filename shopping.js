@@ -82,7 +82,7 @@ function initMenuIntegration(){
   const currentList = State.getCurrentList();
   if (window.Menu && Menu.init) {
     Menu.init();
-    if (allLists && Menu.setAllLists) Menu.setAllLists(getRecentListsForMenu());
+    if (allLists && Menu.setAllLists) Menu.setAllLists(ListOps.getRecentListsForMenu());
     if (currentList && Menu.setCurrentList) Menu.setCurrentList(currentList);
   } else {
     // Wait for the page resources to be loaded — server should have included menu.js
@@ -97,316 +97,15 @@ function initMenuIntegration(){
 }
 
 // Helper to get recent lists for menu (limit to 5 for mobile)
-function getRecentListsForMenu() {
-  const allLists = State.getAllLists();
-  return allLists.slice(0, 5);
-}
-
-// Helper to call Menu.hideMenus() if available
-function hideAppMenus(){ if (window.Menu && Menu.hideMenus) Menu.hideMenus(); }
 
 // ============== Section menu actions ================
-function uncheckAll() {
-  const currentList = State.getCurrentList();
-  Util.Util.traverseSections(currentList.items, null, it => {
-    if (it.type === 'item') {
-      it.checked = false;
-    }
-  });
-  hideAppMenus();
-};
 
 // ============== Menu actions (unchanged, small tweak for list type) =================
 
-// Go back to the index page
-function indexLink() {
-  window.location.href = window.location.pathname;
-}
-
-function createNewList(name=null, type='checklist') {
-  // TODO - Save the current list if modified
-  if (! name)
-    name = prompt('Enter new list name:');
-
-  // The user-provided name is the display title; normalize it for the filename
-  const displayTitle = name || 'NewList';
-  const { name: safeName, adjusted } = Storage.sanitizeListName(displayTitle);
-  if (adjusted) State.setBanner(`File name adjusted to ${safeName} for saving.`, 'info');
-  else State.clearBanner();
-
-  let newListObj;
-  if (type === 'journal') {
-    // For journal lists, start with empty items and let JournalHelper populate the year/month/day path.
-    newListObj = {
-      name: safeName,
-      title: displayTitle,
-      type: 'journal',
-      sortOrder: 'newest-first',
-      items: []
-    };
-  } else {
-    newListObj = {
-      name: safeName,
-      title: displayTitle,
-      type: type || 'checklist',
-      items:[{
-        type:"section",
-        title:displayTitle,
-        collapsed:false,
-        items:[{type:"item", text:"", checked:false}]
-      }]
-    };
-  }
-
-  const allLists = State.getAllLists();
-  if (!allLists.find(l => l.name === safeName)) allLists.push({name: safeName, title: displayTitle});
-  if (window.Menu && Menu.setAllLists) Menu.setAllLists(getRecentListsForMenu());
-  selectList(safeName,newListObj);
-  Storage.scheduleSave();
-}
-
-function deleteCurrentList() {
-  const currentList = State.getCurrentList();
-  const typeWord = (currentList?.type === 'journal') ? 'journal' : 'list';
-  const displayTitle = currentList?.title || currentList?.name;
-  if(!confirm(`Delete ${typeWord} "${displayTitle}"?`)) return;
-  fetch(`/shopping/api.cgi/${currentList.name}`,{method:'DELETE'})
-  .then ( data => {
-    const allLists = State.getAllLists();
-    State.setAllLists(allLists.filter(l=>l.name!==currentList.name));
-    if (window.Menu && Menu.setAllLists) Menu.setAllLists(getRecentListsForMenu());
-    indexLink();
-  })
-  .catch(console.error);
-}
-
-// Toggle list type between 'journal' and 'checklist'
-function toggleListType() {
-  const currentList = State.getCurrentList();
-  if (!currentList) return;
-  const was = currentList.type || 'checklist';
-  const now = was === 'journal' ? 'checklist' : 'journal';
-  currentList.type = now;
-
-  // If switching to journal, ensure today's journal path exists
-  if (now === 'journal' && window.JournalHelper) {
-    try {
-      const res = JournalHelper.ensureJournalPathForDate(currentList, new Date());
-      if (res && res.createdItem) State.setFocusItem(res.createdItem);
-    } catch (e) {
-      console.error('JournalHelper ensure failed', e);
-    }
-  }
-
-  if (window.Menu && Menu.setCurrentList) Menu.setCurrentList(currentList);
-  render();
-  Storage.scheduleSave();
-}
-
-// Create a journal entry for a specific date (dateStr in YYYY-MM-DD or empty for today)
-function createJournalEntryForDate(dateStr) {
-  const currentList = State.getCurrentList();
-  if (!currentList) return;
-  if ((currentList.type || 'checklist') !== 'journal') {
-    // Offer to convert
-    if (!confirm('Current list is not a journal. Convert it to a journal?')) return;
-    currentList.type = 'journal';
-  }
-  let date;
-  if (!dateStr || dateStr.trim() === '') date = new Date();
-  else {
-    // Parse a simple YYYY-MM-DD string
-    const m = dateStr.trim().match(/^(\d{4})-(\d{2})-(\d{2})$/);
-    if (!m) {
-      alert('Please enter date in YYYY-MM-DD format.');
-      return;
-    }
-    date = new Date(`${m[1]}-${m[2]}-${m[3]}T00:00:00`);
-    if (isNaN(date.getTime())) { alert('Invalid date'); return; }
-  }
-
-  if (window.JournalHelper) {
-    try {
-      const res = JournalHelper.ensureJournalPathForDate(currentList, date);
-      if (res && res.createdItem) {
-        State.setFocusItem(res.createdItem);
-      }
-      render();
-      Storage.scheduleSave();
-      if (window.Menu && Menu.setCurrentList) Menu.setCurrentList(currentList);
-    } catch (e) {
-      console.error('JournalHelper ensure failed', e);
-    }
-  }
-}
-
-// ============== Sorting helpers and functions for journal lists ==============
-// Refactored to use JournalHelper from journal.js
-
-// Sort entire journal: years, months and days (sections only)
-function sortJournal() {
-  const currentList = State.getCurrentList();
-  if (!currentList || !Array.isArray(currentList.items)) return;
-  JournalHelper.sortJournal(currentList);
-  render();
-  Storage.scheduleSave();
-}
-
-// Sort only the immediate subsections of the provided section
-function sortSection(section) {
-  if (!section || !Array.isArray(section.items)) return;
-  const currentList = State.getCurrentList();
-  const success = JournalHelper.sortSection(section, currentList);
-  if (!success) {
-    alert('No sortable subsections found in this section.');
-    return;
-  }
-  render();
-  Storage.scheduleSave();
-}
-
-// Toggle journal sort order between newest-first and oldest-first
-function toggleSortOrder() {
-  const currentList = State.getCurrentList();
-  if (!currentList) return;
-  const current = currentList.sortOrder || 'newest-first';
-  currentList.sortOrder = current === 'newest-first' ? 'oldest-first' : 'newest-first';
-  
-  // Auto-sort after toggling
-  sortJournal();
-  
-  if (window.Menu && Menu.setCurrentList) Menu.setCurrentList(currentList);
-}
-
-// ============== Section deletion helpers ==============
-
-// Delete a section: prompt only if it contains non-empty items
-function deleteSection(section) {
-  const currentList = State.getCurrentList();
-  if (!currentList || !section) return;
-
-  // find parent array and index
-  const found = Util.findParentArrayAndIndex(currentList.items, section);
-  if (!found) {
-    console.warn('deleteSection: parent not found');
-    return;
-  }
-
-  const nonEmptyCount = Util.countNonEmptyItems(section);
-  if (nonEmptyCount > 0) {
-    if (!confirm(`This section contains ${nonEmptyCount} non-empty item(s). Delete the section and all its content?`)) return;
-  }
-
-  // perform deletion
-  found.parentArray.splice(found.index, 1);
-
-  // update UI and save
-  if (window.Menu && Menu.setCurrentList) Menu.setCurrentList(currentList);
-  render();
-  Storage.scheduleSave();
-}
-
-// Helper functions moved to util.js
-
-function expandAll() {
-  const currentList = State.getCurrentList();
-  Util.Util.traverseSections(currentList.items, sec => sec.collapsed = false);
-}
-
-function collapseAll() {
-  const currentList = State.getCurrentList();
-  Util.traverseSections(currentList.items, sec => sec.collapsed = true);
-}
-
-function clearAllFilters() {
-  const currentList = State.getCurrentList();
-  currentList.filter = "",
-  Util.traverseSections(currentList.items, sec => sec.filter = '');
-}
-
-// ================= List selection =================
-function selectList(name,data){
-  // Update the URL in the address bar so selection is reflected (without reloading)
-  try {
-    const newUrl = `${window.location.pathname}?l=${encodeURIComponent(name)}`;
-    history.replaceState(null, '', newUrl);
-  } catch (e) { /* ignore if history not available */ }
-
-  // Use title for display, name for file operations; fallback to name if title not present
-  if(data){
-    State.setCurrentList(data);
-    const currentList = State.getCurrentList();
-    const displayTitle = currentList.title || currentList.name;
-    document.title = displayTitle;
-    listName.textContent = displayTitle;
-
-    // If this is a journal list and the JournalHelper is present,
-    // ensure today's year/month/day section exists before rendering.
-    if (window.JournalHelper && currentList?.type === 'journal') {
-      try {
-        const res = JournalHelper.ensureJournalPathForDate(currentList, new Date());
-        if (res && res.createdItem) {
-          State.setFocusItem(res.createdItem);
-          render();
-          Storage.scheduleSave();
-        } else {
-          render();
-        }
-      } catch (e) {
-        console.error('JournalHelper ensure failed', e);
-        render();
-      }
-    } else {
-      render();
-    }
-
-    if (window.Menu && Menu.setCurrentList) Menu.setCurrentList(currentList);
-  }
-  else
-    fetch(`/shopping/api.cgi/${name}`)
-    .then(async r=>{
-      if (!r.ok) {
-        const bodyText = await r.text().catch(() => '');
-        throw new Error(bodyText.trim() || `Failed to load list (${r.status} ${r.statusText})`);
-      }
-      State.setCurrentListLastModified(r.headers.get('Last-Modified'));
-      return r.json();
-    })
-    .then(d=>{
-      State.setCurrentList(d);
-      const currentList = State.getCurrentList();
-      const displayTitle = currentList.title || currentList.name;
-      document.title = displayTitle;
-      listName.textContent = displayTitle;
-
-      // ensure journal top path if needed
-      if (window.JournalHelper && currentList?.type === 'journal') {
-        try {
-          const res = JournalHelper.ensureJournalPathForDate(currentList, new Date());
-          if (res && res.createdItem) {
-            State.setFocusItem(res.createdItem);
-            render();
-            Storage.scheduleSave();
-          } else {
-            render();
-          }
-        } catch (e) {
-          console.error('JournalHelper ensure failed', e);
-          render();
-        }
-      } else {
-        render();
-      }
-
-      Util.setListFavicon(name,currentList?.bgColor || '#fff');
-      if (window.Menu && Menu.setCurrentList) Menu.setCurrentList(currentList);
-      State.clearBanner();
-    })
-    .catch(err => {
-      console.error('Failed to load list', err);
-      State.setBanner(err.message || 'Failed to load list');
-    });
-}
+// Delegates to ListOps module for list-level operations
+// Functions moved: uncheckAll, indexLink, createNewList, deleteCurrentList, toggleListType,
+// createJournalEntryForDate, sortJournal, sortSection, toggleSortOrder, deleteSection,
+// expandAll, collapseAll, clearAllFilters, selectList
 
 // ================= Render =================
 // Note: resolveFilter and focusEditable moved to util.js
@@ -587,7 +286,7 @@ function renderSection(container,section,parentSections,parentEffectiveFilter){
           State.setFocusItem(section);
           render();
           Storage.scheduleSave();
-          hideAppMenus();
+          ListOps.hideAppMenus();
         } else {
           if (window.Menu && Menu.showSectionMenu) Menu.showSectionMenu(section, toggleBtn);
         }
@@ -785,29 +484,38 @@ window.ShoppingApp = {
   // Core functions
   render,
   scheduleSave: Storage.scheduleSave,
-  selectList,
+  
+  // List operations - delegate to ListOps (with render/save wrappers where needed)
+  selectList: ListOps.selectList,
+  indexLink: ListOps.indexLink,
+  createNewList: ListOps.createNewList,
+  deleteCurrentList: ListOps.deleteCurrentList,
+  uncheckAll: () => { ListOps.uncheckAll(); render(); Storage.scheduleSave(); },
+  expandAll: () => { ListOps.expandAll(); render(); Storage.scheduleSave(); },
+  collapseAll: () => { ListOps.collapseAll(); render(); Storage.scheduleSave(); },
+  clearAllFilters: () => { ListOps.clearAllFilters(); render(); Storage.scheduleSave(); },
+  hideAppMenus: ListOps.hideAppMenus,
+  
+  // Journal operations - delegate to ListOps (with render/save wrappers where needed)
+  toggleListType: () => { ListOps.toggleListType(); render(); Storage.scheduleSave(); },
+  createJournalEntryForDate: (dateStr) => { 
+    const result = ListOps.createJournalEntryForDate(dateStr); 
+    if (result) { render(); Storage.scheduleSave(); }
+  },
+  sortJournal: () => { ListOps.sortJournal(); render(); Storage.scheduleSave(); },
+  sortSection: (section) => { 
+    const result = ListOps.sortSection(section); 
+    if (result) { render(); Storage.scheduleSave(); }
+  },
+  toggleSortOrder: () => { ListOps.toggleSortOrder(); render(); Storage.scheduleSave(); },
+  deleteSection: (section) => { 
+    const result = ListOps.deleteSection(section); 
+    if (result) { render(); Storage.scheduleSave(); }
+  },
+  
+  // Helper functions used by Menu - delegate to ListOps
+  getRecentListsForMenu: ListOps.getRecentListsForMenu,
   getEffectiveBgColor: Util.getEffectiveBgColor,
-  hideAppMenus,
-  
-  // List operations
-  indexLink,
-  createNewList,
-  deleteCurrentList,
-  uncheckAll,
-  expandAll,
-  collapseAll,
-  clearAllFilters,
-  
-  // Journal operations
-  toggleListType,
-  createJournalEntryForDate,
-  sortJournal,
-  sortSection,
-  toggleSortOrder,
-  deleteSection,
-  
-  // Helper functions used by Menu
-  getRecentListsForMenu,
   
   // Menu helper callbacks
   changeCurrentBg: (bg) => {
@@ -883,7 +591,7 @@ fetch('/shopping/api.cgi/')
     const allLists = State.getAllLists();
     if (!allLists.length) { // Make sure we have at least some list
       console.log("No lists found. Creating NewList");
-      createNewList("NewList");
+      ListOps.createNewList("NewList");
     }
     //let want = window.preferredList || "";
     const params = new URLSearchParams(window.location.search);
@@ -891,15 +599,15 @@ fetch('/shopping/api.cgi/')
 
     if ( !want ) {
       renderIndex();
-      if (window.Menu && Menu.setAllLists) Menu.setAllLists(getRecentListsForMenu());
+      if (window.Menu && Menu.setAllLists) Menu.setAllLists(ListOps.getRecentListsForMenu());
       return;
     }
 
     let idx = allLists.findIndex(l => l.name === want);
     if (idx < 0) idx = 0;
 
-    selectList(allLists[idx].name);
-    if (window.Menu && Menu.setAllLists) Menu.setAllLists(getRecentListsForMenu());
+    ListOps.selectList(allLists[idx].name);
+    if (window.Menu && Menu.setAllLists) Menu.setAllLists(ListOps.getRecentListsForMenu());
   })
   .catch(err=>{
     console.log('Using default list:',err);
