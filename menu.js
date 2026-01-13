@@ -6,7 +6,6 @@
   let menu, secMenu, subMenu;
   let allLists = [];
   let currentList = null;
-  let options = null;
   let lastSectionAnchor = null;
 
   // Helper: Create a styled menu element
@@ -70,7 +69,7 @@
   // Helper: Apply background color and contrasting text color to element
   function applyMenuColors(element, bgColor){
     element.style.background = bgColor;
-    element.style.color = options.getContrastColor ? options.getContrastColor(bgColor) : '#000';
+    element.style.color = typeof getContrastColor === 'function' ? getContrastColor(bgColor) : '#000';
   }
 
   // Helper: Get the effective background color for a section (walks up parent chain)
@@ -123,58 +122,64 @@
     if ( section.collapsed ) {
       addMenuItem(secMenu,"Expand", () => {
         section.collapsed = false;
-        options.callbacks.scheduleSave && options.callbacks.scheduleSave();
-        options.callbacks.rerender && options.callbacks.rerender();
+        ShoppingApp.scheduleSave && ShoppingApp.scheduleSave();
+        ShoppingApp.render && ShoppingApp.render();
       });
     } else {
       addMenuItem(secMenu,"Collapse", () => {
         section.collapsed = true;
-        options.callbacks.scheduleSave && options.callbacks.scheduleSave();
-        options.callbacks.rerender && options.callbacks.rerender();
+        ShoppingApp.scheduleSave && ShoppingApp.scheduleSave();
+        ShoppingApp.render && ShoppingApp.render();
       });
     }
 
     addMenuItem(secMenu,"Uncheck All", () => {
       // delegate to app
-      options.callbacks.uncheckAllSection && options.callbacks.uncheckAllSection(section);
+      ShoppingApp.uncheckAllSection && ShoppingApp.uncheckAllSection(section);
       // fallback to global uncheckAll if provided
-      if (!options.callbacks.uncheckAllSection && options.callbacks.uncheckAll) options.callbacks.uncheckAll();
+      if (!ShoppingApp.uncheckAllSection && ShoppingApp.uncheckAll) ShoppingApp.uncheckAll();
     });
 
     createFilterButtons(secMenu, ['all','checked','unchecked','none'], section.filter, (f) => {
       section.filter = f === 'none' ? '' : f;
-      options.callbacks.scheduleSave && options.callbacks.scheduleSave();
-      options.callbacks.rerender && options.callbacks.rerender();
+      if (window.ShoppingApp) {
+        ShoppingApp.scheduleSave();
+        ShoppingApp.render();
+      }
+      hideMenus();
     });
 
     const effectiveBg = getEffectiveBgColor(section);
     createColorPicker(secMenu, 'Color: ', effectiveBg, (value) => {
       section.bgColor = value;
       applyMenuColors(secMenu, value);
-      options.callbacks.scheduleSave && options.callbacks.scheduleSave();
-      options.callbacks.rerender && options.callbacks.rerender();
+      if (window.ShoppingApp) {
+        ShoppingApp.scheduleSave();
+        ShoppingApp.render();
+      }
+      hideMenus();
     });
 
     // If the current list is a journal, expose "Sort Section" here
-    if (currentList && currentList.type === 'journal' && options && options.callbacks && typeof options.callbacks.sortSection === 'function') {
+    if (currentList && currentList.type === 'journal' && window.ShoppingApp && typeof ShoppingApp.sortSection === 'function') {
       secMenu.appendChild(createSeparator());
       addMenuItem(secMenu, 'Sort Section', () => {
-        options.callbacks.sortSection(section);
+        ShoppingApp.sortSection(section);
       });
     }
 
     // Add Item...
-    if (options.callbacks && typeof options.callbacks.addItemToSection === 'function') {
+    if (window.ShoppingApp && typeof ShoppingApp.addItemToSection === 'function') {
       addMenuItem(secMenu, 'Add Item...', () => {
-        options.callbacks.addItemToSection(section, lastSectionAnchor || secMenu);
+        ShoppingApp.addItemToSection(section, lastSectionAnchor || secMenu);
       });
     }
 
     // Delete Section (available for all lists)
     secMenu.appendChild(createSeparator());
     addMenuItem(secMenu, 'Delete Section', () => {
-      if (options.callbacks && typeof options.callbacks.deleteSection === 'function') {
-        options.callbacks.deleteSection(section);
+      if (window.ShoppingApp && typeof ShoppingApp.deleteSection === 'function') {
+        ShoppingApp.deleteSection(section);
       }
     });
 
@@ -201,15 +206,15 @@
     // ===== CREATE SECTION =====
     addMenuHeader(menu, 'Create');
     
-    addMenuItem(menu, '+ New List', options.callbacks.createNewList || (()=>{}));
+    addMenuItem(menu, '+ New List', ShoppingApp.createNewList || (()=>{}));
     
     addMenuItem(menu, '+ New Journal', () => {
       const name = window.prompt ? window.prompt('Enter new journal name:') : null;
       if (name !== null) {
-        if (options.callbacks && typeof options.callbacks.createNewList === 'function') {
-          options.callbacks.createNewList(name, 'journal');
-        } else if (options.callbacks && typeof options.callbacks.createNew === 'function') {
-          options.callbacks.createNew(name, 'journal');
+        if (window.ShoppingApp && typeof ShoppingApp.createNewList === 'function') {
+          ShoppingApp.createNewList(name, 'journal');
+        } else if (window.ShoppingApp && typeof ShoppingApp.createNew === 'function') {
+          ShoppingApp.createNew(name, 'journal');
         }
       }
     });
@@ -222,9 +227,9 @@
       addMenuHeader(menu, currentList.title || currentList.name);
       
       // Add Item to current list
-      if (options.callbacks && typeof options.callbacks.addItemToList === 'function') {
+      if (window.ShoppingApp && typeof ShoppingApp.addItemToList === 'function') {
         addMenuItem(menu, '+ Add Item...', () => {
-          options.callbacks.addItemToList(options.menuButton || menu);
+          ShoppingApp.addItemToList(ShoppingApp.menuButton || menu);
         });
       }
 
@@ -233,44 +238,51 @@
         addMenuItem(menu, '+ New Entry for Date...', () => {
           const dateStr = window.prompt ? window.prompt('Enter date (YYYY-MM-DD), empty = today:') : '';
           if (dateStr !== null) {
-            if (options.callbacks && typeof options.callbacks.createJournalEntryForDate === 'function') {
-              options.callbacks.createJournalEntryForDate(dateStr);
+            if (window.ShoppingApp && typeof ShoppingApp.createJournalEntryForDate === 'function') {
+              ShoppingApp.createJournalEntryForDate(dateStr);
             }
           }
         });
         
-        if (options && options.callbacks && typeof options.callbacks.sortJournal === 'function') {
+        if (window.ShoppingApp && typeof ShoppingApp.sortJournal === 'function') {
           addMenuItem(menu, '↕ Sort Journal', () => {
-            options.callbacks.sortJournal();
+            ShoppingApp.sortJournal();
           });
         }
         
         // Toggle sort order for journals
-        if (options && options.callbacks && typeof options.callbacks.toggleSortOrder === 'function') {
+        if (window.ShoppingApp && typeof ShoppingApp.toggleSortOrder === 'function') {
           const sortOrder = currentList.sortOrder || 'newest-first';
           const label = sortOrder === 'newest-first' ? '⬇ Sort: Newest First' : '⬆ Sort: Oldest First';
           addMenuItem(menu, label, () => {
-            options.callbacks.toggleSortOrder();
+            ShoppingApp.toggleSortOrder();
           });
         }
       }
 
       addMenuItem(menu, '↔ Toggle Journal Mode', () => {
-        if (options.callbacks && typeof options.callbacks.toggleListType === 'function') {
-          options.callbacks.toggleListType();
+        if (window.ShoppingApp && typeof ShoppingApp.toggleListType === 'function') {
+          ShoppingApp.toggleListType();
         }
       });
 
       // Color picker
       createColorPicker(menu, 'Background: ', currentList.bgColor || '#ffffff', (val) => {
-        if (options.callbacks.changeCurrentBg) options.callbacks.changeCurrentBg(val);
+        if (ShoppingApp.changeCurrentBg) ShoppingApp.changeCurrentBg(val);
       });
 
       // Global filter
       createFilterButtons(menu, ['checked','unchecked','none'], currentList.filter || 'all', (f) => {
+        console.log('[Menu] Filter button clicked:', f);
         currentList.filter = f === 'none' ? '' : f;
-        options.callbacks.scheduleSave && options.callbacks.scheduleSave();
-        options.callbacks.selectList && options.callbacks.selectList(currentList.name);
+        console.log('[Menu] currentList.filter set to:', currentList.filter);
+        if (window.ShoppingApp) {
+          console.log('[Menu] Calling scheduleSave and render');
+          ShoppingApp.scheduleSave();
+          ShoppingApp.render();
+        } else {
+          console.error('[Menu] ShoppingApp not available!');
+        }
         hideMenus();
       });
 
@@ -279,15 +291,15 @@
       // ===== BULK ACTIONS SECTION =====
       addMenuHeader(menu, 'Bulk Actions');
       
-      addMenuItem(menu, '☐ Uncheck All', options.callbacks.uncheckAll || (()=>{}));
-      addMenuItem(menu, '▼ Expand All', options.callbacks.expandAll || (()=>{}));
-      addMenuItem(menu, '▶ Collapse All', options.callbacks.collapseAll || (()=>{}));
-      addMenuItem(menu, '⊗ Clear All Filters', options.callbacks.clearAllFilters || (()=>{}));
+      addMenuItem(menu, '☐ Uncheck All', ShoppingApp.uncheckAll || (()=>{}));
+      addMenuItem(menu, '▼ Expand All', ShoppingApp.expandAll || (()=>{}));
+      addMenuItem(menu, '▶ Collapse All', ShoppingApp.collapseAll || (()=>{}));
+      addMenuItem(menu, '⊗ Clear All Filters', ShoppingApp.clearAllFilters || (()=>{}));
 
       menu.appendChild(createSeparator());
 
       // ===== DANGER ZONE =====
-      addMenuItem(menu, '🗑 Delete This List', options.callbacks.deleteCurrentList || (()=>{}));
+      addMenuItem(menu, '🗑 Delete This List', ShoppingApp.deleteCurrentList || (()=>{}));
     }
 
     menu.appendChild(createSeparator());
@@ -315,7 +327,7 @@
 
   function hideMenus(){
     if (menu) menu.style.display = 'none';
-    if (options && options.menuButton) options.menuButton.setAttribute('aria-expanded','false');
+    if (window.ShoppingApp && ShoppingApp.menuButton) ShoppingApp.menuButton.setAttribute('aria-expanded','false');
     if (secMenu) secMenu.style.display = 'none';
     if (subMenu) subMenu.style.display = 'none';
   }
@@ -334,11 +346,11 @@
   function showMainMenu(){
     if (!menu) return;
     buildMenuInternal();
-    const rect = options.menuButton.getBoundingClientRect();
+    const rect = window.ShoppingApp.menuButton.getBoundingClientRect();
     menu.style.left = rect.left + 'px';
     menu.style.top = (rect.bottom + 6 + window.scrollY) + 'px';
     menu.style.display='block';
-    options.menuButton.setAttribute('aria-expanded','true');
+    window.ShoppingApp.menuButton.setAttribute('aria-expanded','true');
   }
 
   function showSectionMenu(section, anchor){
@@ -353,8 +365,8 @@
 
   // global click/key handlers
   function onDocumentClick(e){
-    if (!options) return;
-    const clickedOutsideMain = menu && !menu.contains(e.target) && e.target !== options.menuButton;
+    if (!window.ShoppingApp) return;
+    const clickedOutsideMain = menu && !menu.contains(e.target) && e.target !== window.ShoppingApp.menuButton;
     const clickedOutsideSec = secMenu && !secMenu.contains(e.target);
     const clickedOutsideSub = subMenu && !subMenu.contains(e.target);
     if (clickedOutsideMain && clickedOutsideSec && clickedOutsideSub) hideMenus();
@@ -396,83 +408,94 @@
 
     // New… submenu
     addTrigger(menu, 'New…', (sm) => {
-      addMenuItem(sm, 'List', options.callbacks.createNewList || (()=>{}));
+      addMenuItem(sm, 'List', ShoppingApp.createNewList || (()=>{}));
       addMenuItem(sm, 'Journal', () => {
         const name = window.prompt ? window.prompt('Enter new journal name:') : null;
         if (name !== null) {
-          if (options.callbacks && typeof options.callbacks.createNewList === 'function') {
-            options.callbacks.createNewList(name, 'journal');
-          } else if (options.callbacks && typeof options.callbacks.createNew === 'function') {
-            options.callbacks.createNew(name, 'journal');
+          if (window.ShoppingApp && typeof ShoppingApp.createNewList === 'function') {
+            ShoppingApp.createNewList(name, 'journal');
+          } else if (window.ShoppingApp && typeof ShoppingApp.createNew === 'function') {
+            ShoppingApp.createNew(name, 'journal');
           }
         }
       });
     });
 
     // Add to … opens add-item dialog directly
-    if (currentList && options.callbacks && typeof options.callbacks.addItemToList === 'function') {
+    if (currentList && window.ShoppingApp && typeof ShoppingApp.addItemToList === 'function') {
       const displayTitle = currentList.title || currentList.name;
       addMenuItem(menu, `Add to ${displayTitle}…`, () => {
-        options.callbacks.addItemToList(options.menuButton || menu);
+        ShoppingApp.addItemToList(ShoppingApp.menuButton || menu);
       });
     }
 
     // View… submenu
     addTrigger(menu, 'View…', (sm) => {
-      addMenuItem(sm, 'Expand All', options.callbacks.expandAll || (()=>{}));
-      addMenuItem(sm, 'Collapse All', options.callbacks.collapseAll || (()=>{}));
+      addMenuItem(sm, 'Expand All', ShoppingApp.expandAll || (()=>{}));
+      addMenuItem(sm, 'Collapse All', ShoppingApp.collapseAll || (()=>{}));
       
-      // Filters section
+      // Filters section with button style (matching section menu)
       sm.appendChild(createSeparator());
-      const setFilter = (val) => {
+      createFilterButtons(sm, ['all','checked','unchecked','none'], currentList?.filter || 'all', (f) => {
         if (!currentList) return;
-        currentList.filter = val;
-        options.callbacks.scheduleSave && options.callbacks.scheduleSave();
-        options.callbacks.selectList && options.callbacks.selectList(currentList.name);
+        // Clear section filters first (before setting list filter)
+        if (currentList.items) {
+          const clearSectionFilters = (items) => {
+            items.forEach(item => {
+              if (item.type === 'section') {
+                item.filter = '';
+                if (item.items) clearSectionFilters(item.items);
+              }
+            });
+          };
+          clearSectionFilters(currentList.items);
+        }
+        // Now set the list-level filter
+        currentList.filter = f === 'none' ? '' : f;
+        if (window.ShoppingApp) {
+          ShoppingApp.scheduleSave();
+          ShoppingApp.render();
+        }
         hideMenus();
-      };
-      addMenuItem(sm, 'Show All', () => setFilter('all'));
-      addMenuItem(sm, 'Checked', () => setFilter('checked'));
-      addMenuItem(sm, 'Unchecked', () => setFilter('unchecked'));
-      addMenuItem(sm, 'Inherit (None)', () => setFilter(''));
+      });
       sm.appendChild(createSeparator());
-      addMenuItem(sm, 'Clear All Filters', options.callbacks.clearAllFilters || (()=>{}));
+      addMenuItem(sm, 'Clear All Filters', ShoppingApp.clearAllFilters || (()=>{}));
     });
 
     // Settings… submenu
     addTrigger(menu, 'Settings…', (sm) => {
       // Background color picker
       createColorPicker(sm, 'Background: ', currentList?.bgColor || '#ffffff', (val) => {
-        if (options.callbacks.changeCurrentBg) options.callbacks.changeCurrentBg(val);
+        if (ShoppingApp.changeCurrentBg) ShoppingApp.changeCurrentBg(val);
       });
       // Toggle journal mode
       addMenuItem(sm, 'Toggle Journal Mode', () => {
-        if (options.callbacks && typeof options.callbacks.toggleListType === 'function') {
-          options.callbacks.toggleListType();
+        if (window.ShoppingApp && typeof ShoppingApp.toggleListType === 'function') {
+          ShoppingApp.toggleListType();
         }
       });
       // Sort Journal (only for journal type lists)
-      if (currentList && currentList.type === 'journal' && options && options.callbacks && typeof options.callbacks.sortJournal === 'function') {
+      if (currentList && currentList.type === 'journal' && window.ShoppingApp && typeof ShoppingApp.sortJournal === 'function') {
         addMenuItem(sm, 'Sort Journal', () => {
-          options.callbacks.sortJournal();
+          ShoppingApp.sortJournal();
         });
         
         // Toggle sort order
-        if (typeof options.callbacks.toggleSortOrder === 'function') {
+        if (typeof ShoppingApp.toggleSortOrder === 'function') {
           const sortOrder = currentList.sortOrder || 'newest-first';
           const label = sortOrder === 'newest-first' ? 'Sort: Newest First ⬇' : 'Sort: Oldest First ⬆';
           addMenuItem(sm, label, () => {
-            options.callbacks.toggleSortOrder();
+            ShoppingApp.toggleSortOrder();
           });
         }
       }
       // Uncheck all moved to Settings
-      addMenuItem(sm, 'Uncheck All', options.callbacks.uncheckAll || (()=>{}));
+      addMenuItem(sm, 'Uncheck All', ShoppingApp.uncheckAll || (()=>{}));
       // Delete action with type + name
       if (currentList) {
         const typeWord = (currentList.type === 'journal') ? 'Journal' : 'List';
         const displayTitle = currentList.title || currentList.name;
-        addMenuItem(sm, `Delete ${typeWord} "${displayTitle}"`, options.callbacks.deleteCurrentList || (()=>{}));
+        addMenuItem(sm, `Delete ${typeWord} "${displayTitle}"`, ShoppingApp.deleteCurrentList || (()=>{}));
       }
     });
 
@@ -509,35 +532,17 @@
     menu.appendChild(allLink);
   }
 
-  function showMainMenu(){
-    if (!menu) return;
-    buildMenuInternal();
-    const rect = options.menuButton.getBoundingClientRect();
-    menu.style.left = rect.left + 'px';
-    menu.style.top = (rect.bottom + 6 + window.scrollY) + 'px';
-    menu.style.display='block';
-    options.menuButton.setAttribute('aria-expanded','true');
-  }
-
-  function showSectionMenu(section, anchor){
-    if(!secMenu) return;
-    lastSectionAnchor = anchor || null;
-    buildSectionMenuInternal(section);
-    const rect = anchor.getBoundingClientRect();
-    secMenu.style.left = rect.left + 'px';
-    secMenu.style.top = (rect.bottom + window.scrollY + 4) + 'px';
-    secMenu.style.display = 'block';
-  }
-
   const Menu = {
-    init(opts){
-      options = opts || {};
-      if (!options.getContrastColor) options.getContrastColor = (hex) => '#000';
-      if (!options.menuButton) console.warn('Menu.init: menuButton not provided');
+    init(){
+      if (!window.ShoppingApp) {
+        console.error('Menu.init: ShoppingApp not available');
+        return;
+      }
+      if (!window.ShoppingApp.menuButton) console.warn('Menu.init: menuButton not provided');
       if (!menu || !secMenu || !subMenu) createMenuElements();
 
       // attach the menu button handler
-      options.menuButton.onclick = (e) => {
+      window.ShoppingApp.menuButton.onclick = (e) => {
         e.stopPropagation();
         if (menu.style.display === 'none') showMainMenu(); else hideMenus();
       };

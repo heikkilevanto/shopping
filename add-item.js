@@ -8,12 +8,9 @@ const AddItemForm = (function() {
   let addItemForm = null;
   let addItemContext = null; // { targetArray, parentSection }
   let suppressNextAddItemDocClose = false;
-  
-  // Callbacks passed from main app
-  let callbacks = {};
 
   function defaultItemTypeForCurrentList() {
-    const currentList = callbacks.getCurrentList ? callbacks.getCurrentList() : null;
+    const currentList = window.ShoppingApp ? ShoppingApp.getCurrentList() : null;
     return (currentList?.type === 'journal') ? 'text' : 'checkbox';
   }
 
@@ -103,11 +100,11 @@ const AddItemForm = (function() {
       else addItemContext.targetArray.push(newItem);
 
       const focusItem = (t === 'section') ? newItem.items[0] : newItem;
-      if (callbacks.setFocusItem) callbacks.setFocusItem(focusItem);
+      if (window.ShoppingApp && ShoppingApp.setFocusItem) ShoppingApp.setFocusItem(focusItem);
       hide();
-      if (callbacks.render) callbacks.render();
-      if (callbacks.scheduleSave) callbacks.scheduleSave();
-      if (callbacks.hideAppMenus) callbacks.hideAppMenus();
+      if (window.ShoppingApp && ShoppingApp.render) ShoppingApp.render();
+      if (window.ShoppingApp && ShoppingApp.scheduleSave) ShoppingApp.scheduleSave();
+      if (window.ShoppingApp && ShoppingApp.hideAppMenus) ShoppingApp.hideAppMenus();
     }
 
     topBtn.onclick = () => handleAdd('top');
@@ -119,11 +116,11 @@ const AddItemForm = (function() {
       const val = addItemForm._typeSelect.value;
       if (val === 'journal-entry') {
         const dateStr = addItemForm._dateInput.value.trim();
-        if (callbacks.createJournalEntryForDate) {
-          callbacks.createJournalEntryForDate(dateStr);
+        if (window.ShoppingApp && ShoppingApp.createJournalEntryForDate) {
+          ShoppingApp.createJournalEntryForDate(dateStr);
         }
         hide();
-        if (callbacks.hideAppMenus) callbacks.hideAppMenus();
+        if (window.ShoppingApp && ShoppingApp.hideAppMenus) ShoppingApp.hideAppMenus();
       }
     };
 
@@ -153,14 +150,14 @@ const AddItemForm = (function() {
   }
 
   function show(targetArray, { parentSection = null, anchor = null, defaultType = null } = {}) {
-    const currentList = callbacks.getCurrentList ? callbacks.getCurrentList() : null;
+    const currentList = ShoppingApp.getCurrentList ? ShoppingApp.getCurrentList() : null;
     if (!currentList || !Array.isArray(targetArray)) return;
     
     const form = ensureForm();
     addItemContext = { targetArray, parentSection };
     suppressNextAddItemDocClose = true; // ignore the originating click (menu item)
     
-    const bg = callbacks.getEffectiveBgColor ? callbacks.getEffectiveBgColor(parentSection) : '#ffffff';
+    const bg = ShoppingApp.getEffectiveBgColor ? ShoppingApp.getEffectiveBgColor(parentSection) : '#ffffff';
     form.style.backgroundColor = bg;
     form.style.color = getContrastColor(bg);
     
@@ -199,8 +196,8 @@ const AddItemForm = (function() {
 
   // Public API
   return {
-    init: function(opts) {
-      callbacks = opts || {};
+    init: function() {
+      // No initialization needed - uses global ShoppingApp
     },
     show: show,
     hide: hide

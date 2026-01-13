@@ -12,7 +12,6 @@
     targetParentArray: null,
     targetIndex: null,
     autoScrollTimer: null,
-    options: null,
     // click suppression state
     suppressClickTarget: null,
     clickSuppressor: null,
@@ -48,15 +47,16 @@
   }
 
   const api = {
-    init(options = {}) {
-      if (!options.container || !options.render || !options.scheduleSave) {
-        console.warn('drag.init: missing required options (container, render, scheduleSave)');
+    init() {
+      if (!window.ShoppingApp) {
+        console.warn('drag.init: ShoppingApp not available');
+        return;
       }
-      state.options = Object.assign({
-        autoScroll: { margin: 40, speed: 8 }
-      }, options);
+      if (!ShoppingApp.container || !ShoppingApp.render || !ShoppingApp.scheduleSave) {
+        console.warn('drag.init: missing required ShoppingApp methods (container, render, scheduleSave)');
+      }
       state.dropMarker = createDropMarker();
-      console.debug('drag.init', { container: state.options.container, autoScroll: state.options.autoScroll });
+      console.debug('drag.init', { container: ShoppingApp.container });
     },
 
     registerLine(lineEl) {
@@ -315,8 +315,8 @@
 
       try {
         console.debug('calling render() and scheduleSave() after successful drop');
-        state.options.render();
-        state.options.scheduleSave();
+        window.ShoppingApp.render();
+        window.ShoppingApp.scheduleSave();
       } catch (e) {
         console.error('drag.dropHere: error calling render/scheduleSave', e);
       }
@@ -368,13 +368,13 @@
     if (!el) return;
     const lineEl = el.closest ? el.closest('.line, .section') : null;
     if (!lineEl) {
-      const container = state.options.container;
+      const container = window.ShoppingApp.container;
       const rect = container.getBoundingClientRect();
       state.dropMarker.style.left = rect.left + 'px';
       state.dropMarker.style.width = rect.width + 'px';
       state.dropMarker.style.top = (rect.bottom - 2 + window.scrollY) + 'px';
       state.dropMarker.classList.remove('hidden');
-      state.targetParentArray = typeof state.options.getRootItems === 'function' ? state.options.getRootItems() : null;
+      state.targetParentArray = window.ShoppingApp && window.ShoppingApp.getCurrentList() ? window.ShoppingApp.getCurrentList().items : null;
       state.targetIndex = state.targetParentArray ? state.targetParentArray.length : null;
       console.debug('computeAndShowTarget: over container (end)', { targetParentArray: describeArray(state.targetParentArray), targetIndex: state.targetIndex });
       return;
@@ -421,11 +421,11 @@
   }
 
   function handleAutoScroll(clientY) {
-    const container = state.options.container;
+    const container = window.ShoppingApp.container;
     if (!container) return;
     const rect = container.getBoundingClientRect();
-    const margin = state.options.autoScroll.margin;
-    const speed = state.options.autoScroll.speed;
+    const margin = 40; // autoScroll margin
+    const speed = 8;   // autoScroll speed
     if (clientY < rect.top + margin) {
       if (!state.autoScrollTimer) state.autoScrollTimer = setInterval(() => container.scrollBy(0, -speed), 40);
     } else if (clientY > rect.bottom - margin) {

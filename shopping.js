@@ -173,60 +173,7 @@ function getEffectiveBgColor(section){
 
 function initMenuIntegration(){
   if (window.Menu && Menu.init) {
-    Menu.init({
-      menuButton,
-      getContrastColor,
-      callbacks: {
-        indexLink,
-        createNewList,
-        deleteCurrentList,
-        uncheckAll,
-        expandAll,
-        collapseAll,
-        clearAllFilters,
-        selectList: (name) => selectList(name),
-        scheduleSave,
-        changeCurrentBg: (bg) => {
-          if (!currentList) return;
-          currentList.bgColor = bg;
-          render();
-          scheduleSave();
-          Menu.hideMenus();
-        },
-        // New callbacks for sorting and deletion
-        sortJournal: () => sortJournal(),
-        sortSection: (section) => sortSection(section),
-        toggleSortOrder: () => toggleSortOrder(),
-        deleteSection: (section) => deleteSection(section),
-        rerender: () => {
-          // Re-render the list to reflect changes (color, filter, collapse state)
-          render();
-        },
-        // other callbacks
-        toggleListType: () => toggleListType(),
-        createJournalEntryForDate: (dateStr) => createJournalEntryForDate(dateStr),
-        addItemToList: (anchor) => {
-          if (!currentList) return;
-          const defaultType = (currentList?.type === 'journal') ? 'journal-entry' : 'checkbox';
-          AddItemForm.show(currentList.items, { parentSection: null, anchor: anchor || menuButton, defaultType });
-        },
-        addItemToSection: (section, anchor) => {
-          if (!section || !Array.isArray(section.items)) return;
-          const defaultType = (currentList?.type === 'journal') ? 'journal-entry' : 'checkbox';
-          AddItemForm.show(section.items, { parentSection: section, anchor, defaultType });
-        },
-        capturePhoto: () => {
-          if (typeof capturePhoto !== 'undefined') {
-            capturePhoto();
-          } else {
-            console.error('capturePhoto function not available');
-          }
-        }
-      },
-      document,
-      body: document.body
-    });
-
+    Menu.init();
     if (allLists && Menu.setAllLists) Menu.setAllLists(getRecentListsForMenu());
     if (currentList && Menu.setCurrentList) Menu.setCurrentList(currentList);
   } else {
@@ -240,8 +187,6 @@ function initMenuIntegration(){
     }, { once: true });
   }
 }
-
-initMenuIntegration();
 
 // Helper to get recent lists for menu (limit to 5 for mobile)
 function getRecentListsForMenu() {
@@ -941,30 +886,91 @@ function renderIndex() {
   appContainer.appendChild(index);
 }
 
+// ================= Public API =================
+// Expose functions for other modules to use instead of callbacks
+window.ShoppingApp = {
+  // Data accessors
+  getCurrentList: () => currentList,
+  getAllLists: () => allLists,
+  setFocusItem: (item) => { focusItem = item; },
+  
+  // DOM elements
+  container,
+  menuButton,
+  
+  // Core functions
+  render,
+  scheduleSave,
+  selectList,
+  getEffectiveBgColor,
+  hideAppMenus,
+  
+  // List operations
+  indexLink,
+  createNewList,
+  deleteCurrentList,
+  uncheckAll,
+  expandAll,
+  collapseAll,
+  clearAllFilters,
+  
+  // Journal operations
+  toggleListType,
+  createJournalEntryForDate,
+  sortJournal,
+  sortSection,
+  toggleSortOrder,
+  deleteSection,
+  
+  // Helper functions used by Menu
+  getRecentListsForMenu,
+  
+  // Menu helper callbacks
+  changeCurrentBg: (bg) => {
+    if (!currentList) return;
+    currentList.bgColor = bg;
+    render();
+    scheduleSave();
+    if (window.Menu && Menu.hideMenus) Menu.hideMenus();
+  },
+  
+  addItemToList: (anchor) => {
+    if (!currentList) return;
+    const defaultType = (currentList?.type === 'journal') ? 'journal-entry' : 'checkbox';
+    if (typeof AddItemForm !== 'undefined' && AddItemForm.show) {
+      AddItemForm.show(currentList.items, { parentSection: null, anchor: anchor || menuButton, defaultType });
+    }
+  },
+  
+  addItemToSection: (section, anchor) => {
+    if (!section || !Array.isArray(section.items)) return;
+    const defaultType = (currentList?.type === 'journal') ? 'journal-entry' : 'checkbox';
+    if (typeof AddItemForm !== 'undefined' && AddItemForm.show) {
+      AddItemForm.show(section.items, { parentSection: section, anchor, defaultType });
+    }
+  },
+  
+  capturePhoto: () => {
+    if (typeof capturePhoto !== 'undefined') {
+      capturePhoto();
+    } else {
+      console.error('capturePhoto function not available');
+    }
+  }
+};
 
+// Initialize Menu after ShoppingApp is available
+initMenuIntegration();
 
 // ================= Init =================
 // Initialize add-item form module
 if (typeof AddItemForm !== 'undefined' && AddItemForm.init) {
-  AddItemForm.init({
-    getCurrentList: () => currentList,
-    getEffectiveBgColor,
-    setFocusItem: (item) => { focusItem = item; },
-    render,
-    scheduleSave,
-    hideAppMenus,
-    createJournalEntryForDate
-  });
+  AddItemForm.init();
 }
 
 // Initialize drag module (if available).
 if (typeof drag !== 'undefined' && drag.init) {
-  drag.init({
-    container,
-    render,
-    scheduleSave,
-    getRootItems: () => currentList ? currentList.items : []
-  });
+  drag.init();
 }
 
 if (typeof initPhotoModule !== 'undefined') {
