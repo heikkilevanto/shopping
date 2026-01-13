@@ -57,7 +57,7 @@
 
 ## Project-Specific Patterns
 
-- Modules communicate via global scope when needed
+- Modules should use global namespace pattern, with one object like window.util that lists public functions
 - Use `scheduleSave()` pattern for debounced saves
 - Keep data and UI in sync through re-rendering
 - Store references in DOM nodes using underscore prefix: `element._item = item`

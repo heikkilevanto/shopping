@@ -1,7 +1,7 @@
 // photo.js - photo capture, upload, and rendering for shopping list
 
-// Globals set by shopping.js
-// currentList, scheduleSave, render, focusItem
+// Uses State API (State.getCurrentList, State.getFocusItem, State.setFocusItem)
+// and ShoppingApp API (ShoppingApp.render, ShoppingApp.scheduleSave)
 
 // Hidden file input for fallback capture/select
 let photoFileInput = null;
@@ -65,6 +65,7 @@ function uploadPhoto(file) {
 }
 
 function insertPhotoItem(filename) {
+  const currentList = State.getCurrentList();
   if (!currentList) {
     console.error('insertPhotoItem: no currentList');
     return;
@@ -87,8 +88,9 @@ function insertPhotoItem(filename) {
     insertIdx = photoInsertContext.index;
     emptyLineItem = photoInsertContext.emptyLineItem;  // Save before clearing
     photoInsertContext = null;  // Clear after use
-  } else if (focusItem && (focusItem.type === 'text' || focusItem.type === 'item' || focusItem.type === 'photo')) {
+  } else if (State.getFocusItem() && (State.getFocusItem().type === 'text' || State.getFocusItem().type === 'item' || State.getFocusItem().type === 'photo')) {
     // focusItem is a regular item; find its parent array and insert after it
+    const focusItem = State.getFocusItem();
     parentItems = findParentArray(currentList, focusItem);
     if (parentItems) {
       insertIdx = parentItems.indexOf(focusItem);
@@ -98,9 +100,9 @@ function insertPhotoItem(filename) {
         insertIdx = parentItems.length;
       }
     }
-  } else if (focusItem && focusItem.type === 'section') {
+  } else if (State.getFocusItem() && State.getFocusItem().type === 'section') {
     // focusItem is a section; insert into its items
-    parentItems = focusItem.items;
+    parentItems = State.getFocusItem().items;
     insertIdx = parentItems.length;
   }
 
@@ -115,15 +117,17 @@ function insertPhotoItem(filename) {
   
   // Focus the item after the photo - use the stored reference if available
   if (emptyLineItem) {
-    focusItem = emptyLineItem;
+    State.setFocusItem(emptyLineItem);
   } else if (parentItems[insertIdx + 1]) {
-    focusItem = parentItems[insertIdx + 1];
+    State.setFocusItem(parentItems[insertIdx + 1]);
   } else {
-    focusItem = photoItem;
+    State.setFocusItem(photoItem);
   }
   
-  render();
-  scheduleSave();
+  if (window.ShoppingApp) {
+    ShoppingApp.render();
+    ShoppingApp.scheduleSave();
+  }
 }
 
 function findParentArray(container, targetItem) {

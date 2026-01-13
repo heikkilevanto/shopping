@@ -1,0 +1,374 @@
+# Refactoring Plan for shopping.js
+
+## Current State
+- shopping.js: 1050 lines - too large, mixed concerns
+- Existing modules: menu.js (563), journal.js (282), util.js (118), drag.js (453), photo.js (169), add-item.js (210)
+- grand total of 2845 lines in *.js
+
+## Goal
+Break shopping.js into focused, single-responsibility modules while maintaining compatibility with existing code.
+
+================================================================================
+## Phase 1: Create state.js (~100 lines)
+================================================================================
+
+### Purpose
+Centralize all global state variables and state-related UI functions.
+
+### Extract from shopping.js:
+- Line 8-14: State variables
+  - allLists
+  - currentList
+  - currentListLastModified
+  - saveTimeout
+  - focusItem
+  - isSaving
+  - isModified
+
+- Line 74-97: State management functions
+  - updateStatus() - update save/modified indicator
+  - setBanner(message, type) - show error/info banner
+  - clearBanner() - hide banner
+
+### Create window.State API:
+```javascript
+window.State = {
+  // Getters
+  getAllLists: () => allLists,
+  getCurrentList: () => currentList,
+  getCurrentListLastModified: () => currentListLastModified,
+  getFocusItem: () => focusItem,
+  isSaving: () => isSaving,
+  isModified: () => isModified,
+  
+  // Setters
+  setAllLists: (lists) => { allLists = lists; },
+  setCurrentList: (list) => { currentList = list; },
+  setCurrentListLastModified: (lm) => { currentListLastModified = lm; },
+  setFocusItem: (item) => { focusItem = item; },
+  setIsSaving: (val) => { isSaving = val; updateStatus(); },
+  setIsModified: (val) => { isModified = val; updateStatus(); },
+  
+  // Status/Banner functions
+  updateStatus,
+  setBanner,
+  clearBanner
+};
+```
+
+### Dependencies
+- None (pure state management)
+
+### HTML Script Tag
+Add to index.cgi before shopping.js:
+```html
+<script src="state.js"></script>
+```
+
+================================================================================
+## Phase 2: Create storage.js (~100 lines)
+================================================================================
+
+### Purpose
+Handle all server communication and data persistence.
+
+### Extract from shopping.js:
+- Line 98-109: sanitizeListName(rawName)
+- Line 110-137: saveCurrentList()
+- Line 138-149: scheduleSave()
+- Line 1000-1020: Focus-check reload logic (from init section)
+
+### Create window.Storage API:
+```javascript
+window.Storage = {
+  sanitizeListName,
+  saveCurrentList,
+  scheduleSave,
+  loadList: (name, callback),  // Extract from selectList
+  loadAllLists: (callback),    // Extract from init
+  deleteList: (name, callback) // Extract from deleteCurrentList
+};
+```
+
+### Dependencies
+- state.js (uses State getters/setters)
+
+### HTML Script Tag
+Add to index.cgi after state.js:
+```html
+<script src="storage.js"></script>
+```
+
+================================================================================
+## Phase 3: Expand util.js (~150 lines total)
+================================================================================
+
+### Purpose
+Group all general-purpose utility functions in one place.
+
+### Add to existing util.js:
+- Line 151-172: getEffectiveBgColor(section)
+- Line 393-407: traverseSections(items, secFn, itFn, doRender)
+- Line 505-523: resolveFilter(section, parentSections)
+- Line 524-533: focusEditable(el)
+
+### Update window.Util API:
+Add these functions to existing Util object.
+
+### Dependencies
+- None for pure utilities
+- state.js for traverseSections (uses getCurrentList, scheduleSave)
+
+### HTML Script Tag
+Already included in index.cgi
+
+================================================================================
+## Phase 4: Create list-operations.js (~200 lines)
+================================================================================
+
+### Purpose
+Handle all list-level CRUD operations and transformations.
+
+### Extract from shopping.js:
+- Line 200-211: uncheckAll()
+- Line 212-215: indexLink()
+- Line 216-256: createNewList(name, type)
+- Line 257-270: deleteCurrentList()
+- Line 271-291: toggleListType()
+- Line 293-330: createJournalEntryForDate(dateStr)
+- Line 332-339: sortJournal()
+- Line 340-351: sortSection(section)
+- Line 352-365: toggleSortOrder()
+- Line 366-391: deleteSection(section)
+- Line 409-412: expandAll()
+- Line 413-416: collapseAll()
+- Line 417-421: clearAllFilters()
+- Line 423-504: selectList(name, data)
+
+### Create window.ListOps API:
+```javascript
+window.ListOps = {
+  // Navigation
+  indexLink,
+  
+  // List CRUD
+  createNewList,
+  deleteCurrentList,
+  selectList,
+  
+  // List manipulation
+  toggleListType,
+  uncheckAll,
+  expandAll,
+  collapseAll,
+  clearAllFilters,
+  
+  // Journal operations
+  createJournalEntryForDate,
+  sortJournal,
+  sortSection,
+  toggleSortOrder,
+  
+  // Section operations
+  deleteSection
+};
+```
+
+### Dependencies
+- state.js (getCurrentList, setCurrentList, setFocusItem, etc.)
+- storage.js (scheduleSave, sanitizeListName)
+- util.js (traverseSections, countNonEmptyItems, findParentArrayAndIndex)
+- journal.js (JournalHelper)
+- menu.js (Menu)
+
+### HTML Script Tag
+Add to index.cgi after storage.js:
+```html
+<script src="list-operations.js"></script>
+```
+
+================================================================================
+## Phase 5: Create rendering.js (~400 lines)
+================================================================================
+
+### Purpose
+Handle all DOM manipulation and rendering logic.
+
+### Extract from shopping.js:
+- Line 17-71: DOM element creation (body, appContainer, titleContainer, etc.)
+- Line 534-686: renderItem(container, item, parentItems, parentSection)
+- Line 687-785: renderSection(container, section, parentSections, parentEffectiveFilter)
+- Line 786-801: renderItems(container, items, parentItems, effectiveFilter, parentSection)
+- Line 802-846: render(target)
+- Line 847-895: renderIndex()
+
+### Create window.Rendering API:
+```javascript
+window.Rendering = {
+  // DOM elements (exposed for other modules)
+  appContainer,
+  titleContainer,
+  menuButton,
+  listName,
+  listStatus,
+  errorBanner,
+  container,
+  
+  // Main render functions
+  render,
+  renderIndex,
+  
+  // Internal (but exposed for special cases)
+  renderItem,
+  renderSection,
+  renderItems
+};
+```
+
+### Dependencies
+- state.js (getCurrentList, getFocusItem, setFocusItem, etc.)
+- storage.js (scheduleSave)
+- util.js (getContrastColor, focusEditable, setListFavicon)
+- menu.js (Menu)
+- drag.js (drag)
+- photo.js (renderPhotoItem, photoInsertContext, capturePhoto)
+
+### HTML Script Tag
+Add to index.cgi after list-operations.js:
+```html
+<script src="rendering.js"></script>
+```
+
+================================================================================
+## Phase 6: Slim down shopping.js (~250 lines)
+================================================================================
+
+### Purpose
+Main controller/orchestrator - initialization and module coordination only.
+
+### Keep in shopping.js:
+- Line 1-6: Header comment and "use strict"
+- Line 174-199: Menu integration (initMenuIntegration, getRecentListsForMenu, hideAppMenus)
+- Line 897-980: window.ShoppingApp API (update to use new modules)
+- Line 982-989: initMenuIntegration() call
+- Line 991-1002: Module initialization
+- Line 1004-1050: Init code (fetch lists, setup)
+
+### Update window.ShoppingApp API:
+Change all direct function calls to use new module APIs:
+```javascript
+window.ShoppingApp = {
+  // Data accessors (delegate to State)
+  getCurrentList: State.getCurrentList,
+  getAllLists: State.getAllLists,
+  setFocusItem: State.setFocusItem,
+  
+  // DOM elements (delegate to Rendering)
+  container: Rendering.container,
+  menuButton: Rendering.menuButton,
+  
+  // Core functions (delegate to appropriate modules)
+  render: Rendering.render,
+  scheduleSave: Storage.scheduleSave,
+  selectList: ListOps.selectList,
+  // ... etc
+};
+```
+
+### Dependencies
+- ALL modules (orchestrates them)
+
+### HTML Script Tag
+Already included, but must be LAST in order
+
+================================================================================
+## Migration Steps (Do in Order)
+================================================================================
+
+### Step 1: Create state.js
+1. Create state.js with state variables and functions
+2. Update index.cgi to include state.js
+3. Update shopping.js to use State.getCurrentList() etc instead of direct access
+4. Test - everything should still work
+
+### Step 2: Create storage.js
+1. Create storage.js with persistence functions
+2. Update index.cgi to include storage.js
+3. Update shopping.js and other modules to use Storage API
+4. Test - save/load should still work
+
+### Step 3: Expand util.js
+1. Add new functions to util.js
+2. Update shopping.js to use Util.focusEditable() etc
+3. Test - rendering and utilities should work
+
+### Step 4: Create list-operations.js
+1. Create list-operations.js with list operations
+2. Update index.cgi to include list-operations.js
+3. Update shopping.js to use ListOps API
+4. Update menu.js callbacks to use ListOps
+5. Test - all list operations should work
+
+### Step 5: Create rendering.js
+1. Create rendering.js with all rendering code
+2. Update index.cgi to include rendering.js
+3. Update shopping.js to use Rendering API
+4. Test - rendering should work perfectly
+
+### Step 6: Slim shopping.js
+1. Remove all extracted code from shopping.js
+2. Update window.ShoppingApp to delegate to modules
+3. Clean up and organize remaining init code
+4. Test - entire app should work
+
+### Step 7: Final verification
+1. Test all features: create, edit, delete lists
+2. Test journal operations
+3. Test drag & drop
+4. Test menu operations
+5. Test photo capture
+6. Check browser console for errors
+7. Verify save/load works correctly
+
+================================================================================
+## HTML Script Loading Order (final state)
+================================================================================
+
+```html
+<script src="util.js"></script>           <!-- No dependencies -->
+<script src="state.js"></script>          <!-- No dependencies -->
+<script src="storage.js"></script>        <!-- Needs: state -->
+<script src="journal.js"></script>        <!-- No dependencies -->
+<script src="menu.js"></script>           <!-- No dependencies (sets up later) -->
+<script src="list-operations.js"></script><!-- Needs: state, storage, util, journal, menu -->
+<script src="drag.js"></script>           <!-- No dependencies -->
+<script src="photo.js"></script>          <!-- No dependencies -->
+<script src="add-item.js"></script>       <!-- No dependencies -->
+<script src="rendering.js"></script>      <!-- Needs: state, storage, util, menu, drag, photo -->
+<script src="shopping.js"></script>       <!-- LAST - orchestrates everything -->
+```
+
+================================================================================
+## Testing Checklist for Each Phase
+================================================================================
+
+After each phase, verify:
+- [ ] No console errors
+- [ ] List loads correctly
+- [ ] Can create new items
+- [ ] Can edit items
+- [ ] Save indicator shows correctly
+- [ ] Changes persist after reload
+- [ ] Menu works
+- [ ] Drag & drop works (after Phase 5)
+
+================================================================================
+## Notes
+================================================================================
+
+- Follow prompt.txt guidelines (no IIFEs, global scope OK, plain JS)
+- Each module should have header comment explaining purpose
+- Use "use strict" in every file
+- Keep backward compatibility with existing modules
+- Test incrementally - don't break working code
+- Each phase should result in working app

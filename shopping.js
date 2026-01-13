@@ -4,15 +4,8 @@
 
 "use strict";  // Croak on undefined vars etc
 
-// ================= Data =================
-let allLists = [];   // {name}
-let currentList = null;
-let currentListLastModified = null; // Last-Modified header from server
-let saveTimeout;
-let focusItem = null;
-let isSaving = false;
-let isModified = false;
-
+// Note: State management moved to state.js
+// Access state via State.getCurrentList(), State.setFocusItem(), etc.
 
 // ================= Build page =================
 const body = document.body;
@@ -43,6 +36,7 @@ listName.onkeydown = e => {
   }
 };
 listName.oninput = () => {
+  const currentList = State.getCurrentList();
   if (!currentList) return;
   const newTitle = listName.textContent.trim();
   if (newTitle && currentList.title !== newTitle) {
@@ -69,32 +63,10 @@ container.id = 'list-container';
 container.style.marginTop = '0.5em';
 appContainer.appendChild(container);
 
+// Initialize State module with DOM elements
+State.initDOMElements(listStatus, errorBanner);
+
 // ================= Utility =================
-
-function updateStatus() {
-  let statusChar = '';
-  if (isSaving) statusChar = ' S';
-  else if (isModified) statusChar = ' *';
-  listStatus.textContent = statusChar;
-  // Update tab title
-  if (currentList) {
-    const displayTitle = currentList.title || currentList.name;
-    document.title = displayTitle + statusChar;
-  }
-}
-
-function setBanner(message, type = 'error') {
-  if (!message) return clearBanner();
-  errorBanner.textContent = message;
-  errorBanner.classList.add('show');
-  errorBanner.classList.toggle('info', type === 'info');
-}
-
-function clearBanner() {
-  errorBanner.textContent = '';
-  errorBanner.classList.remove('show', 'info');
-}
-
 function sanitizeListName(rawName) {
   const fallback = 'NewList';
   const trimmed = (rawName ?? '').trim();
@@ -108,9 +80,9 @@ function sanitizeListName(rawName) {
 }
 
 function saveCurrentList() {
-  isSaving = true;
-  updateStatus();
-  clearTimeout(saveTimeout);
+  const currentList = State.getCurrentList();
+  State.setIsSaving(true);
+  clearTimeout(State.getSaveTimeout());
 
   return fetch(`/shopping/api.cgi/${currentList.name}`, {
     method: 'POST',
@@ -121,34 +93,34 @@ function saveCurrentList() {
       const bodyText = await r.text().catch(() => '');
       throw new Error(bodyText.trim() || `Save failed (${r.status} ${r.statusText})`);
     }
-    clearBanner();
-    currentListLastModified = r.headers.get('Last-Modified');
-    isSaving = false;
-    isModified = false;
-    updateStatus();
+    State.clearBanner();
+    State.setCurrentListLastModified(r.headers.get('Last-Modified'));
+    State.setIsSaving(false);
+    State.setIsModified(false);
   }).catch(err => {
     console.error('Save failed', err);
-    isSaving = false;
-    updateStatus();
-    setBanner(err.message || 'Save failed');
+    State.setIsSaving(false);
+    State.setBanner(err.message || 'Save failed');
     throw err;
   });
 }
 
 function scheduleSave() {
-  clearTimeout(saveTimeout);
+  clearTimeout(State.getSaveTimeout());
+  const currentList = State.getCurrentList();
   if (!currentList) return;
-  isModified = true;
-  updateStatus();
+  State.setIsModified(true);
 
-  saveTimeout = setTimeout(() => {
+  const timeout = setTimeout(() => {
     saveCurrentList().catch(console.error);
   }, 2000);  // in ms
+  State.setSaveTimeout(timeout);
 }
 
 
 // Helper: Get the effective background color for a section (walks up parent chain)
 function getEffectiveBgColor(section){
+  const currentList = State.getCurrentList();
   if (!currentList) return '#ffffff';
   if (!section) return currentList.bgColor || '#ffffff';
   if (section.bgColor) return section.bgColor;
@@ -172,6 +144,8 @@ function getEffectiveBgColor(section){
 // Initialize Menu if available; otherwise wait for window 'load' as a fallback.
 
 function initMenuIntegration(){
+  const allLists = State.getAllLists();
+  const currentList = State.getCurrentList();
   if (window.Menu && Menu.init) {
     Menu.init();
     if (allLists && Menu.setAllLists) Menu.setAllLists(getRecentListsForMenu());
@@ -190,6 +164,7 @@ function initMenuIntegration(){
 
 // Helper to get recent lists for menu (limit to 5 for mobile)
 function getRecentListsForMenu() {
+  const allLists = State.getAllLists();
   return allLists.slice(0, 5);
 }
 
@@ -198,6 +173,7 @@ function hideAppMenus(){ if (window.Menu && Menu.hideMenus) Menu.hideMenus(); }
 
 // ============== Section menu actions that used to rely on hideMenus ================
 function uncheckAll() {
+  const currentList = State.getCurrentList();
   traverseSections(currentList.items, null, it => {
     if (it.type === 'item') {
       it.checked = false;
@@ -221,8 +197,8 @@ function createNewList(name=null, type='checklist') {
   // The user-provided name is the display title; normalize it for the filename
   const displayTitle = name || 'NewList';
   const { name: safeName, adjusted } = sanitizeListName(displayTitle);
-  if (adjusted) setBanner(`File name adjusted to ${safeName} for saving.`, 'info');
-  else clearBanner();
+  if (adjusted) State.setBanner(`File name adjusted to ${safeName} for saving.`, 'info');
+  else State.clearBanner();
 
   let newListObj;
   if (type === 'journal') {
@@ -248,6 +224,7 @@ function createNewList(name=null, type='checklist') {
     };
   }
 
+  const allLists = State.getAllLists();
   if (!allLists.find(l => l.name === safeName)) allLists.push({name: safeName, title: displayTitle});
   if (window.Menu && Menu.setAllLists) Menu.setAllLists(getRecentListsForMenu());
   selectList(safeName,newListObj);
@@ -255,12 +232,14 @@ function createNewList(name=null, type='checklist') {
 }
 
 function deleteCurrentList() {
+  const currentList = State.getCurrentList();
   const typeWord = (currentList?.type === 'journal') ? 'journal' : 'list';
   const displayTitle = currentList?.title || currentList?.name;
   if(!confirm(`Delete ${typeWord} "${displayTitle}"?`)) return;
   fetch(`/shopping/api.cgi/${currentList.name}`,{method:'DELETE'})
   .then ( data => {
-    allLists = allLists.filter(l=>l.name!==currentList.name);
+    const allLists = State.getAllLists();
+    State.setAllLists(allLists.filter(l=>l.name!==currentList.name));
     if (window.Menu && Menu.setAllLists) Menu.setAllLists(getRecentListsForMenu());
     indexLink();
   })
@@ -269,6 +248,7 @@ function deleteCurrentList() {
 
 // Toggle list type between 'journal' and 'checklist'
 function toggleListType() {
+  const currentList = State.getCurrentList();
   if (!currentList) return;
   const was = currentList.type || 'checklist';
   const now = was === 'journal' ? 'checklist' : 'journal';
@@ -278,7 +258,7 @@ function toggleListType() {
   if (now === 'journal' && window.JournalHelper) {
     try {
       const res = JournalHelper.ensureJournalPathForDate(currentList, new Date());
-      if (res && res.createdItem) focusItem = res.createdItem;
+      if (res && res.createdItem) State.setFocusItem(res.createdItem);
     } catch (e) {
       console.error('JournalHelper ensure failed', e);
     }
@@ -291,6 +271,7 @@ function toggleListType() {
 
 // Create a journal entry for a specific date (dateStr in YYYY-MM-DD or empty for today)
 function createJournalEntryForDate(dateStr) {
+  const currentList = State.getCurrentList();
   if (!currentList) return;
   if ((currentList.type || 'checklist') !== 'journal') {
     // Offer to convert
@@ -314,7 +295,7 @@ function createJournalEntryForDate(dateStr) {
     try {
       const res = JournalHelper.ensureJournalPathForDate(currentList, date);
       if (res && res.createdItem) {
-        focusItem = res.createdItem;
+        State.setFocusItem(res.createdItem);
       }
       render();
       scheduleSave();
@@ -330,6 +311,7 @@ function createJournalEntryForDate(dateStr) {
 
 // Sort entire journal: years, months and days (sections only)
 function sortJournal() {
+  const currentList = State.getCurrentList();
   if (!currentList || !Array.isArray(currentList.items)) return;
   JournalHelper.sortJournal(currentList);
   render();
@@ -339,6 +321,7 @@ function sortJournal() {
 // Sort only the immediate subsections of the provided section
 function sortSection(section) {
   if (!section || !Array.isArray(section.items)) return;
+  const currentList = State.getCurrentList();
   const success = JournalHelper.sortSection(section, currentList);
   if (!success) {
     alert('No sortable subsections found in this section.');
@@ -350,6 +333,7 @@ function sortSection(section) {
 
 // Toggle journal sort order between newest-first and oldest-first
 function toggleSortOrder() {
+  const currentList = State.getCurrentList();
   if (!currentList) return;
   const current = currentList.sortOrder || 'newest-first';
   currentList.sortOrder = current === 'newest-first' ? 'oldest-first' : 'newest-first';
@@ -364,6 +348,7 @@ function toggleSortOrder() {
 
 // Delete a section: prompt only if it contains non-empty items
 function deleteSection(section) {
+  const currentList = State.getCurrentList();
   if (!currentList || !section) return;
 
   // find parent array and index
@@ -407,14 +392,17 @@ function traverseSections(items, secFn = null, itFn = null, doRender=true) {
 }
 
 function expandAll() {
+  const currentList = State.getCurrentList();
   traverseSections(currentList.items, sec => sec.collapsed = false);
 }
 
 function collapseAll() {
+  const currentList = State.getCurrentList();
   traverseSections(currentList.items, sec => sec.collapsed = true);
 }
 
 function clearAllFilters() {
+  const currentList = State.getCurrentList();
   currentList.filter = "",
   traverseSections(currentList.items, sec => sec.filter = '');
 }
@@ -429,7 +417,8 @@ function selectList(name,data){
 
   // Use title for display, name for file operations; fallback to name if title not present
   if(data){
-    currentList=data;
+    State.setCurrentList(data);
+    const currentList = State.getCurrentList();
     const displayTitle = currentList.title || currentList.name;
     document.title = displayTitle;
     listName.textContent = displayTitle;
@@ -440,7 +429,7 @@ function selectList(name,data){
       try {
         const res = JournalHelper.ensureJournalPathForDate(currentList, new Date());
         if (res && res.createdItem) {
-          focusItem = res.createdItem;
+          State.setFocusItem(res.createdItem);
           render();
           scheduleSave();
         } else {
@@ -463,11 +452,12 @@ function selectList(name,data){
         const bodyText = await r.text().catch(() => '');
         throw new Error(bodyText.trim() || `Failed to load list (${r.status} ${r.statusText})`);
       }
-      currentListLastModified = r.headers.get('Last-Modified');
+      State.setCurrentListLastModified(r.headers.get('Last-Modified'));
       return r.json();
     })
     .then(d=>{
-      currentList=d;
+      State.setCurrentList(d);
+      const currentList = State.getCurrentList();
       const displayTitle = currentList.title || currentList.name;
       document.title = displayTitle;
       listName.textContent = displayTitle;
@@ -477,7 +467,7 @@ function selectList(name,data){
         try {
           const res = JournalHelper.ensureJournalPathForDate(currentList, new Date());
           if (res && res.createdItem) {
-            focusItem = res.createdItem;
+            State.setFocusItem(res.createdItem);
             render();
             scheduleSave();
           } else {
@@ -493,16 +483,17 @@ function selectList(name,data){
 
       Util.setListFavicon(name,currentList?.bgColor || '#fff');
       if (window.Menu && Menu.setCurrentList) Menu.setCurrentList(currentList);
-      clearBanner();
+      State.clearBanner();
     })
     .catch(err => {
       console.error('Failed to load list', err);
-      setBanner(err.message || 'Failed to load list');
+      State.setBanner(err.message || 'Failed to load list');
     });
 }
 
 // ================= Render =================
 function resolveFilter(section, parentSections) {
+  const currentList = State.getCurrentList();
   let sec = section;
   let filter = sec?.filter || '';
   let parents = parentSections || [];
@@ -542,7 +533,7 @@ function renderItem(container,item,parentItems,parentSection){
     cb.checked=item.checked;
     cb.onchange=()=>{
       item.checked=cb.checked;
-      focusItem = parentSection;
+      State.setFocusItem(parentSection);
       render(); // so the filters take effect
       scheduleSave();
     };
@@ -600,7 +591,7 @@ function renderItem(container,item,parentItems,parentSection){
       if(text==='' && parentItems.length>1){
         const idx=parentItems.indexOf(item);
         if(idx>=0) parentItems.splice(idx,1);
-        focusItem=parentItems[Math.min(idx,parentItems.length-1)]||null;
+        State.setFocusItem(parentItems[Math.min(idx,parentItems.length-1)]||null);
         render();
         scheduleSave();
         return;
@@ -629,7 +620,7 @@ function renderItem(container,item,parentItems,parentSection){
         if (typeof capturePhoto !== 'undefined') {
           capturePhoto();
         }
-        focusItem = item;  // Focus stays on the cleared line
+        State.setFocusItem(item);  // Focus stays on the cleared line
         render();
         scheduleSave();
         return;  // IMPORTANT: return early, do NOT create a new line
@@ -643,7 +634,7 @@ function renderItem(container,item,parentItems,parentSection){
           filter: ''
         };
         parentItems.splice(idx, 1, newSection);
-        focusItem = newSection.items[0];
+        State.setFocusItem(newSection.items[0]);
         render();
         scheduleSave();
         return;  // stop further processing
@@ -652,7 +643,7 @@ function renderItem(container,item,parentItems,parentSection){
       const newItem={type:item.type,text:"",checked:false};
       const idx=parentItems.indexOf(item);
       parentItems.splice(idx+1,0,newItem);
-      focusItem=newItem;
+      State.setFocusItem(newItem);
       render();
       scheduleSave();
     }
@@ -694,7 +685,7 @@ function renderSection(container,section,parentSections,parentEffectiveFilter){
   const header=document.createElement('div');
   header.className='section-header';
   const toggleBtn = document.createElement('button');
-  if ( currentList ) {
+  if ( State.getCurrentList() ) {
       toggleBtn.textContent = section.collapsed ? '[+]' : '[-]';
       toggleBtn.className = 'section-toggle';
       toggleBtn.type = 'button';
@@ -703,7 +694,7 @@ function renderSection(container,section,parentSections,parentEffectiveFilter){
         e.stopPropagation();
         if (e.detail === 2) {
           section.collapsed = !section.collapsed;
-          focusItem = section;
+          State.setFocusItem(section);
           render();
           scheduleSave();
           hideAppMenus();
@@ -731,9 +722,9 @@ function renderSection(container,section,parentSections,parentEffectiveFilter){
     if (section.items.length === 0 || section.items[0].type === 'section') {
       const newItem = { type: 'item', text: '', checked: false };
       section.items.unshift(newItem);
-      focusItem = newItem;
+      State.setFocusItem(newItem);
     } else {
-      focusItem = section.items[0];
+      State.setFocusItem(section.items[0]);
     }
 
     // add new section below if this is last
@@ -775,11 +766,11 @@ function renderSection(container,section,parentSections,parentEffectiveFilter){
   }
 
   // Register toggle button as the section drag handle
-  if (typeof drag !== 'undefined' && drag.registerDragHandle && currentList) {
+  if (typeof drag !== 'undefined' && drag.registerDragHandle && State.getCurrentList()) {
     drag.registerDragHandle(toggleBtn, { type: 'section', itemOrSection: section, parentArray: parentSections, domNode: sec });
   }
 
-  if(section.title.trim()==='' && focusItem===null) focusItem=section;
+  if(section.title.trim()==='' && State.getFocusItem()===null) State.setFocusItem(section);
 }
 
 // Render items recursively
@@ -800,6 +791,7 @@ function renderItems(container, items, parentItems, effectiveFilter = 'all', par
 
 // Main render
 function render(target){
+  const currentList = State.getCurrentList();
   if (!target) {
     document.body.style.backgroundColor = currentList.bgColor || '#ffffff';
     document.body.style.color = Util.getContrastColor(currentList.bgColor || '#ffffff');
@@ -814,6 +806,7 @@ function render(target){
     target.style.color = Util.getContrastColor(currentList.bgColor || '#ffffff');
   }
   renderItems(target,currentList.items,currentList.items, currentList.filter || 'all');
+  const focusItem = State.getFocusItem();
   if (focusItem) {
     const lines = target.querySelectorAll('.line-text');
     const titles = target.querySelectorAll('.section-header .title');
@@ -838,7 +831,7 @@ function render(target){
         }
       }
     }
-    focusItem = null;
+    State.setFocusItem(null);
   }
 
 }
@@ -848,13 +841,14 @@ function renderIndex() {
   appContainer.innerHTML = '<h1>' + currentUser + "'s lists</h1>";
   document.body.style.backgroundColor = "#444";
   document.body.style.color = "#ccc";
-  currentList = null;  // indicator for not menyu buttons
+  State.setCurrentList(null);  // indicator for not menyu buttons
 
   Util.setListFavicon(currentUser, document.body.style.color);
 
   const index = document.createElement('div');
   index.id = 'list-index';
 
+  const allLists = State.getAllLists();
   for (const l of allLists) {
     const link = document.createElement('a');
     link.href = `?l=${encodeURIComponent(l.name)}`;
@@ -889,10 +883,10 @@ function renderIndex() {
 // ================= Public API =================
 // Expose functions for other modules to use instead of callbacks
 window.ShoppingApp = {
-  // Data accessors
-  getCurrentList: () => currentList,
-  getAllLists: () => allLists,
-  setFocusItem: (item) => { focusItem = item; },
+  // Data accessors - delegate to State
+  getCurrentList: State.getCurrentList,
+  getAllLists: State.getAllLists,
+  setFocusItem: State.setFocusItem,
   
   // DOM elements
   container,
@@ -927,6 +921,7 @@ window.ShoppingApp = {
   
   // Menu helper callbacks
   changeCurrentBg: (bg) => {
+    const currentList = State.getCurrentList();
     if (!currentList) return;
     currentList.bgColor = bg;
     render();
@@ -935,6 +930,7 @@ window.ShoppingApp = {
   },
   
   addItemToList: (anchor) => {
+    const currentList = State.getCurrentList();
     if (!currentList) return;
     const defaultType = (currentList?.type === 'journal') ? 'journal-entry' : 'checkbox';
     if (typeof AddItemForm !== 'undefined' && AddItemForm.show) {
@@ -944,6 +940,7 @@ window.ShoppingApp = {
   
   addItemToSection: (section, anchor) => {
     if (!section || !Array.isArray(section.items)) return;
+    const currentList = State.getCurrentList();
     const defaultType = (currentList?.type === 'journal') ? 'journal-entry' : 'checkbox';
     if (typeof AddItemForm !== 'undefined' && AddItemForm.show) {
       AddItemForm.show(section.items, { parentSection: section, anchor, defaultType });
@@ -979,6 +976,8 @@ if (typeof initPhotoModule !== 'undefined') {
 
 // Add focus listener to check for updates when window regains focus
 window.addEventListener('focus', () => {
+  const currentList = State.getCurrentList();
+  const currentListLastModified = State.getCurrentListLastModified();
   if (!currentList || !currentList.name || !currentListLastModified) return;
   
   // Check if list has been modified on server
@@ -992,7 +991,7 @@ window.addEventListener('focus', () => {
     }
     if (r.ok) {
       // File was modified, reload it
-      currentListLastModified = r.headers.get('Last-Modified');
+      State.setCurrentListLastModified(r.headers.get('Last-Modified'));
       console.log('List has changed on server! Reloading...');
       return r.json();
     }
@@ -1000,14 +999,14 @@ window.addEventListener('focus', () => {
   })
   .then(d => {
     if (d) {
-      currentList = d;
-      isModified = false;
-      isSaving = false;
-      clearTimeout(saveTimeout);
+      State.setCurrentList(d);
+      State.setIsModified(false);
+      State.setIsSaving(false);
+      clearTimeout(State.getSaveTimeout());
       render();
       // Brief status update
       listStatus.textContent = ' ↻';
-      setTimeout(() => updateStatus(), 1500);
+      setTimeout(() => State.updateStatus(), 1500);
     }
   })
   .catch(err => console.error('Focus check failed:', err));
@@ -1023,7 +1022,8 @@ fetch('/shopping/api.cgi/')
     return r.json();
   })
   .then(data=>{
-    allLists = data.map(name=>({name}));
+    State.setAllLists(data.map(name=>({name})));
+    const allLists = State.getAllLists();
     if (!allLists.length) { // Make sure we have at least some list
       console.log("No lists found. Creating NewList");
       createNewList("NewList");
@@ -1046,5 +1046,5 @@ fetch('/shopping/api.cgi/')
   })
   .catch(err=>{
     console.log('Using default list:',err);
-    setBanner(err.message || 'Failed to load list index');
+    State.setBanner(err.message || 'Failed to load list index');
   });

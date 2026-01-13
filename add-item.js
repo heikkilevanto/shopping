@@ -95,7 +95,7 @@ const AddItemForm = (function() {
     function handleAdd(where) {
       if (!addItemContext || !Array.isArray(addItemContext.targetArray)) return;
       const t = addItemForm._typeSelect.value;
-      const newItem = createItemByType(t);
+      const newItem = Util.createItemByType(t);
       if (where === 'top') addItemContext.targetArray.unshift(newItem);
       else addItemContext.targetArray.push(newItem);
 
