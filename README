@@ -91,3 +91,65 @@ There is an example apache config under etc, adjust as needed.
 Menu overview
 - View: contains Expand All, Collapse All, and Filters (Show All, Checked, Unchecked, Inherit/None, Clear All Filters).
 - Settings: contains Background color, Toggle Journal Mode, Uncheck All, Delete This List; when the current list is a journal, it also shows Sort Journal.
+
+Module Architecture
+- The codebase has been refactored into focused, single-responsibility modules:
+
+util.js (184 lines)
+- General-purpose utility functions used across the application
+- Color utilities: getContrastColor(), getEffectiveBgColor()
+- Item/section helpers: createItemByType(), findParentSection(), findParentArrayAndIndex(), countNonEmptyItems()
+- Tree traversal: traverseSections()
+- DOM utilities: focusEditable(), setListFavicon()
+- Filter resolution: resolveFilter()
+
+state.js (79 lines)
+- Centralized application state management
+- State variables: allLists, currentList, focusItem, saveTimeout, isSaving, isModified
+- Status/banner functions: updateStatus(), setBanner(), clearBanner()
+- Public API: window.State with getters/setters for all state
+- No dependencies on other modules
+
+storage.js (173 lines)
+- Data persistence and server communication
+- File operations: saveCurrentList(), loadList(), loadAllLists(), deleteList()
+- Auto-save: scheduleSave() with debouncing
+- Name sanitization: sanitizeListName()
+- Focus-based reload detection: setupFocusReloadCheck()
+- Dependencies: state.js
+
+list-operations.js (328 lines)
+- List-level CRUD operations and transformations
+- Navigation: indexLink(), selectList()
+- List CRUD: createNewList(), deleteCurrentList(), toggleListType()
+- Section operations: deleteSection(), sortSection(), expandAll(), collapseAll(), clearAllFilters()
+- Journal operations: createJournalEntryForDate(), sortJournal(), toggleSortOrder()
+- Helpers: getRecentListsForMenu(), hideAppMenus(), uncheckAll()
+- Public API: window.ListOps
+- Dependencies: state.js, storage.js, util.js
+
+rendering.js (445 lines)
+- All DOM creation and rendering logic
+- DOM setup: Creates page structure (appContainer, titleContainer, menuButton, listName, container, etc.)
+- Rendering functions: renderItem(), renderSection(), renderItems(), render(), renderIndex()
+- Item types: Handles checkboxes, text items, photos, sections
+- Special commands: Photo capture ('p'), section creation ('s ')
+- Event handlers: Editing, keyboard shortcuts, drag-and-drop integration
+- Focus management and color theming
+- Public API: window.Rendering with DOM elements and render functions
+- Dependencies: state.js, storage.js, util.js, list-operations.js
+
+shopping.js (204 lines)
+- Main orchestration and initialization
+- Module coordination: Initializes all other modules
+- Public API: window.ShoppingApp (delegates to State, Storage, ListOps, Rendering, Util)
+- Menu integration: initMenuIntegration()
+- Startup: Fetches list index, handles URL parameters, loads/creates lists
+- Dependencies: All modules above
+
+Other modules (not refactored):
+- menu.js (563 lines) - Main menu and section menu UI
+- journal.js (282 lines) - Journal-specific date handling and sorting
+- drag.js (453 lines) - Drag-and-drop functionality
+- photo.js (169 lines) - Photo capture and display
+- add-item.js (210 lines) - Add-item form UI
