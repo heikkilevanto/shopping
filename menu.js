@@ -69,7 +69,7 @@
   // Helper: Apply background color and contrasting text color to element
   function applyMenuColors(element, bgColor){
     element.style.background = bgColor;
-    element.style.color = typeof getContrastColor === 'function' ? getContrastColor(bgColor) : '#000';
+    element.style.color = typeof Util !== 'undefined' && Util.getContrastColor ? Util.getContrastColor(bgColor) : '#000';
   }
 
   // Helper: Get the effective background color for a section (walks up parent chain)
@@ -78,10 +78,10 @@
     if (section.bgColor) return section.bgColor;
     
     // Walk up to find a parent with a color
-    let parent = findParentSection(currentList.items, section);
+    let parent = Util.findParentSection(currentList.items, section);
     while (parent) {
       if (parent.bgColor) return parent.bgColor;
-      parent = findParentSection(currentList.items, parent);
+      parent = Util.findParentSection(currentList.items, parent);
     }
     
     // Fall back to list color

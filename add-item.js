@@ -159,7 +159,7 @@ const AddItemForm = (function() {
     
     const bg = ShoppingApp.getEffectiveBgColor ? ShoppingApp.getEffectiveBgColor(parentSection) : '#ffffff';
     form.style.backgroundColor = bg;
-    form.style.color = getContrastColor(bg);
+    form.style.color = Util.getContrastColor(bg);
     
     // Populate type options depending on current list
     const isJournal = (currentList?.type === 'journal');

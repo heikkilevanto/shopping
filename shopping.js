@@ -154,10 +154,10 @@ function getEffectiveBgColor(section){
   if (section.bgColor) return section.bgColor;
   
   // Walk up to find a parent with a color
-  let parent = findParentSection(currentList.items, section);
+  let parent = Util.findParentSection(currentList.items, section);
   while (parent) {
     if (parent.bgColor) return parent.bgColor;
-    parent = findParentSection(currentList.items, parent);
+    parent = Util.findParentSection(currentList.items, parent);
   }
   
   // Fall back to list color
@@ -367,13 +367,13 @@ function deleteSection(section) {
   if (!currentList || !section) return;
 
   // find parent array and index
-  const found = findParentArrayAndIndex(currentList.items, section);
+  const found = Util.findParentArrayAndIndex(currentList.items, section);
   if (!found) {
     console.warn('deleteSection: parent not found');
     return;
   }
 
-  const nonEmptyCount = countNonEmptyItems(section);
+  const nonEmptyCount = Util.countNonEmptyItems(section);
   if (nonEmptyCount > 0) {
     if (!confirm(`This section contains ${nonEmptyCount} non-empty item(s). Delete the section and all its content?`)) return;
   }
@@ -491,7 +491,7 @@ function selectList(name,data){
         render();
       }
 
-      setListFavicon(name,currentList?.bgColor || '#fff');
+      Util.setListFavicon(name,currentList?.bgColor || '#fff');
       if (window.Menu && Menu.setCurrentList) Menu.setCurrentList(currentList);
       clearBanner();
     })
@@ -802,16 +802,16 @@ function renderItems(container, items, parentItems, effectiveFilter = 'all', par
 function render(target){
   if (!target) {
     document.body.style.backgroundColor = currentList.bgColor || '#ffffff';
-    document.body.style.color = getContrastColor(currentList.bgColor || '#ffffff');
+    document.body.style.color = Util.getContrastColor(currentList.bgColor || '#ffffff');
     // Keep the top line matching the list background and contrast
     if (titleContainer) {
       titleContainer.style.backgroundColor = currentList.bgColor || '#ffffff';
-      titleContainer.style.color = getContrastColor(currentList.bgColor || '#ffffff');
+      titleContainer.style.color = Util.getContrastColor(currentList.bgColor || '#ffffff');
     }
     target = container;
   } else {
     target.style.backgroundColor = currentList.bgColor || '#ffffff';
-    target.style.color = getContrastColor(currentList.bgColor || '#ffffff');
+    target.style.color = Util.getContrastColor(currentList.bgColor || '#ffffff');
   }
   renderItems(target,currentList.items,currentList.items, currentList.filter || 'all');
   if (focusItem) {
@@ -850,7 +850,7 @@ function renderIndex() {
   document.body.style.color = "#ccc";
   currentList = null;  // indicator for not menyu buttons
 
-  setListFavicon(currentUser, document.body.style.color);
+  Util.setListFavicon(currentUser, document.body.style.color);
 
   const index = document.createElement('div');
   index.id = 'list-index';
@@ -873,7 +873,7 @@ function renderIndex() {
       .then(r => r.json())
       .then(list => {
         box.style.backgroundColor = list.bgColor || '#ffffff';
-        box.style.color = getContrastColor(list.bgColor || '#ffffff');
+        box.style.color = Util.getContrastColor(list.bgColor || '#ffffff');
         const displayTitle = list.title || list.name;
         box.innerHTML = `<strong>&nbsp;${displayTitle}</strong>`;  // list title
 
