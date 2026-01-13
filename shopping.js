@@ -42,7 +42,7 @@ listName.oninput = () => {
   if (newTitle && currentList.title !== newTitle) {
     currentList.title = newTitle;
     document.title = newTitle + (listStatus.textContent || '');
-    scheduleSave();
+    Storage.scheduleSave();
   }
 };
 titleContainer.appendChild(listName);
@@ -67,56 +67,8 @@ appContainer.appendChild(container);
 State.initDOMElements(listStatus, errorBanner);
 
 // ================= Utility =================
-function sanitizeListName(rawName) {
-  const fallback = 'NewList';
-  const trimmed = (rawName ?? '').trim();
-  let candidate = trimmed || fallback;
-  candidate = candidate.replace(/[^\w-]/g, '_');
-  candidate = candidate.replace(/_+/g, '_');
-  candidate = candidate.replace(/^_+/, '').replace(/_+$/, '');
-  if (!candidate) candidate = fallback;
-  const adjusted = trimmed.length > 0 && candidate !== trimmed;
-  return { name: candidate, adjusted };
-}
-
-function saveCurrentList() {
-  const currentList = State.getCurrentList();
-  State.setIsSaving(true);
-  clearTimeout(State.getSaveTimeout());
-
-  return fetch(`/shopping/api.cgi/${currentList.name}`, {
-    method: 'POST',
-    body: JSON.stringify(currentList, null, 2) + '\n',
-    headers: { 'Content-Type': 'application/json' }
-  }).then(async r => {
-    if (!r.ok) {
-      const bodyText = await r.text().catch(() => '');
-      throw new Error(bodyText.trim() || `Save failed (${r.status} ${r.statusText})`);
-    }
-    State.clearBanner();
-    State.setCurrentListLastModified(r.headers.get('Last-Modified'));
-    State.setIsSaving(false);
-    State.setIsModified(false);
-  }).catch(err => {
-    console.error('Save failed', err);
-    State.setIsSaving(false);
-    State.setBanner(err.message || 'Save failed');
-    throw err;
-  });
-}
-
-function scheduleSave() {
-  clearTimeout(State.getSaveTimeout());
-  const currentList = State.getCurrentList();
-  if (!currentList) return;
-  State.setIsModified(true);
-
-  const timeout = setTimeout(() => {
-    saveCurrentList().catch(console.error);
-  }, 2000);  // in ms
-  State.setSaveTimeout(timeout);
-}
-
+// Note: sanitizeListName, saveCurrentList, scheduleSave moved to storage.js
+// Access via Storage.Storage.sanitizeListName(), Storage.Storage.saveCurrentList(), Storage.Storage.scheduleSave()
 
 // Helper: Get the effective background color for a section (walks up parent chain)
 function getEffectiveBgColor(section){
@@ -196,7 +148,7 @@ function createNewList(name=null, type='checklist') {
 
   // The user-provided name is the display title; normalize it for the filename
   const displayTitle = name || 'NewList';
-  const { name: safeName, adjusted } = sanitizeListName(displayTitle);
+  const { name: safeName, adjusted } = Storage.sanitizeListName(displayTitle);
   if (adjusted) State.setBanner(`File name adjusted to ${safeName} for saving.`, 'info');
   else State.clearBanner();
 
@@ -228,7 +180,7 @@ function createNewList(name=null, type='checklist') {
   if (!allLists.find(l => l.name === safeName)) allLists.push({name: safeName, title: displayTitle});
   if (window.Menu && Menu.setAllLists) Menu.setAllLists(getRecentListsForMenu());
   selectList(safeName,newListObj);
-  scheduleSave();
+  Storage.scheduleSave();
 }
 
 function deleteCurrentList() {
@@ -266,7 +218,7 @@ function toggleListType() {
 
   if (window.Menu && Menu.setCurrentList) Menu.setCurrentList(currentList);
   render();
-  scheduleSave();
+  Storage.scheduleSave();
 }
 
 // Create a journal entry for a specific date (dateStr in YYYY-MM-DD or empty for today)
@@ -298,7 +250,7 @@ function createJournalEntryForDate(dateStr) {
         State.setFocusItem(res.createdItem);
       }
       render();
-      scheduleSave();
+      Storage.scheduleSave();
       if (window.Menu && Menu.setCurrentList) Menu.setCurrentList(currentList);
     } catch (e) {
       console.error('JournalHelper ensure failed', e);
@@ -315,7 +267,7 @@ function sortJournal() {
   if (!currentList || !Array.isArray(currentList.items)) return;
   JournalHelper.sortJournal(currentList);
   render();
-  scheduleSave();
+  Storage.scheduleSave();
 }
 
 // Sort only the immediate subsections of the provided section
@@ -328,7 +280,7 @@ function sortSection(section) {
     return;
   }
   render();
-  scheduleSave();
+  Storage.scheduleSave();
 }
 
 // Toggle journal sort order between newest-first and oldest-first
@@ -369,7 +321,7 @@ function deleteSection(section) {
   // update UI and save
   if (window.Menu && Menu.setCurrentList) Menu.setCurrentList(currentList);
   render();
-  scheduleSave();
+  Storage.scheduleSave();
 }
 
 // Helper to recurse through a section, and do something for each
@@ -387,7 +339,7 @@ function traverseSections(items, secFn = null, itFn = null, doRender=true) {
   });
   if (doRender) {
     render();
-    scheduleSave();
+    Storage.scheduleSave();
   }
 }
 
@@ -431,7 +383,7 @@ function selectList(name,data){
         if (res && res.createdItem) {
           State.setFocusItem(res.createdItem);
           render();
-          scheduleSave();
+          Storage.scheduleSave();
         } else {
           render();
         }
@@ -469,7 +421,7 @@ function selectList(name,data){
           if (res && res.createdItem) {
             State.setFocusItem(res.createdItem);
             render();
-            scheduleSave();
+            Storage.scheduleSave();
           } else {
             render();
           }
@@ -535,7 +487,7 @@ function renderItem(container,item,parentItems,parentSection){
       item.checked=cb.checked;
       State.setFocusItem(parentSection);
       render(); // so the filters take effect
-      scheduleSave();
+      Storage.scheduleSave();
     };
     line.appendChild(cb);
 
@@ -593,7 +545,7 @@ function renderItem(container,item,parentItems,parentSection){
         if(idx>=0) parentItems.splice(idx,1);
         State.setFocusItem(parentItems[Math.min(idx,parentItems.length-1)]||null);
         render();
-        scheduleSave();
+        Storage.scheduleSave();
         return;
       }
       if(text===''){ span.blur(); return; }
@@ -622,7 +574,7 @@ function renderItem(container,item,parentItems,parentSection){
         }
         State.setFocusItem(item);  // Focus stays on the cleared line
         render();
-        scheduleSave();
+        Storage.scheduleSave();
         return;  // IMPORTANT: return early, do NOT create a new line
       } else if(text.startsWith('s ')){
         const idx = parentItems.indexOf(item);
@@ -636,7 +588,7 @@ function renderItem(container,item,parentItems,parentSection){
         parentItems.splice(idx, 1, newSection);
         State.setFocusItem(newSection.items[0]);
         render();
-        scheduleSave();
+        Storage.scheduleSave();
         return;  // stop further processing
       }
       item.text=text;
@@ -645,13 +597,13 @@ function renderItem(container,item,parentItems,parentSection){
       parentItems.splice(idx+1,0,newItem);
       State.setFocusItem(newItem);
       render();
-      scheduleSave();
+      Storage.scheduleSave();
     }
   };
   span.oninput=()=>{
     const currentText=span.textContent.replace(/\r?\n/g, ' ').trim();
     item.text=currentText;
-    scheduleSave();
+    Storage.scheduleSave();
   };
   // Handle paste: replace newlines with spaces to prevent words from merging
   span.onpaste = e => {
@@ -696,7 +648,7 @@ function renderSection(container,section,parentSections,parentEffectiveFilter){
           section.collapsed = !section.collapsed;
           State.setFocusItem(section);
           render();
-          scheduleSave();
+          Storage.scheduleSave();
           hideAppMenus();
         } else {
           if (window.Menu && Menu.showSectionMenu) Menu.showSectionMenu(section, toggleBtn);
@@ -716,7 +668,7 @@ function renderSection(container,section,parentSections,parentEffectiveFilter){
     e.preventDefault();
     const t = title.textContent.trim();
     section.title = t;
-    scheduleSave();
+    Storage.scheduleSave();
 
     // ensure at least one item exists and first is not a section
     if (section.items.length === 0 || section.items[0].type === 'section') {
@@ -745,7 +697,7 @@ function renderSection(container,section,parentSections,parentEffectiveFilter){
     const t = title.textContent.trim();
     if (section.title !== t) {
       section.title = t;
-      scheduleSave();
+      Storage.scheduleSave();
     }
   };
   header.appendChild(title);
@@ -894,7 +846,7 @@ window.ShoppingApp = {
   
   // Core functions
   render,
-  scheduleSave,
+  scheduleSave: Storage.scheduleSave,
   selectList,
   getEffectiveBgColor,
   hideAppMenus,
@@ -925,7 +877,7 @@ window.ShoppingApp = {
     if (!currentList) return;
     currentList.bgColor = bg;
     render();
-    scheduleSave();
+    Storage.scheduleSave();
     if (window.Menu && Menu.hideMenus) Menu.hideMenus();
   },
   
@@ -974,43 +926,10 @@ if (typeof initPhotoModule !== 'undefined') {
   initPhotoModule();
 }
 
-// Add focus listener to check for updates when window regains focus
-window.addEventListener('focus', () => {
-  const currentList = State.getCurrentList();
-  const currentListLastModified = State.getCurrentListLastModified();
-  if (!currentList || !currentList.name || !currentListLastModified) return;
-  
-  // Check if list has been modified on server
-  fetch(`/shopping/api.cgi/${currentList.name}`, {
-    headers: { 'If-Modified-Since': currentListLastModified }
-  })
-  .then(r => {
-    if (r.status === 304) {
-      // Not modified, nothing to do
-      return null;
-    }
-    if (r.ok) {
-      // File was modified, reload it
-      State.setCurrentListLastModified(r.headers.get('Last-Modified'));
-      console.log('List has changed on server! Reloading...');
-      return r.json();
-    }
-    return null;
-  })
-  .then(d => {
-    if (d) {
-      State.setCurrentList(d);
-      State.setIsModified(false);
-      State.setIsSaving(false);
-      clearTimeout(State.getSaveTimeout());
-      render();
-      // Brief status update
-      listStatus.textContent = ' ↻';
-      setTimeout(() => State.updateStatus(), 1500);
-    }
-  })
-  .catch(err => console.error('Focus check failed:', err));
-});
+// Setup focus-check reload logic (moved to storage.js)
+if (window.Storage && Storage.setupFocusReloadCheck) {
+  Storage.setupFocusReloadCheck();
+}
 
 // Ask API for all available lists
 fetch('/shopping/api.cgi/')
