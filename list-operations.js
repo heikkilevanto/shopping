@@ -10,7 +10,7 @@ function getRecentListsForMenu() {
 }
 
 function hideAppMenus() {
-  if (window.Menu && Menu.hideMenus) Menu.hideMenus();
+  Menu.hideMenus();
 }
 
 // ============== List actions =================
@@ -67,7 +67,7 @@ function createNewList(name=null, type='checklist') {
 
   const allLists = State.getAllLists();
   if (!allLists.find(l => l.name === safeName)) allLists.push({name: safeName, title: displayTitle});
-  if (window.Menu && Menu.setAllLists) Menu.setAllLists(getRecentListsForMenu());
+  Menu.setAllLists(getRecentListsForMenu());
   selectList(safeName,newListObj);
   Storage.scheduleSave();
 }
@@ -81,7 +81,7 @@ function deleteCurrentList() {
   .then ( data => {
     const allLists = State.getAllLists();
     State.setAllLists(allLists.filter(l=>l.name!==currentList.name));
-    if (window.Menu && Menu.setAllLists) Menu.setAllLists(getRecentListsForMenu());
+    Menu.setAllLists(getRecentListsForMenu());
     indexLink();
   })
   .catch(console.error);
@@ -105,7 +105,7 @@ function toggleListType() {
     }
   }
 
-  if (window.Menu && Menu.setCurrentList) Menu.setCurrentList(currentList);
+  Menu.setCurrentList(currentList);
   // Note: render() and scheduleSave() are called by the caller (shopping.js)
 }
 
@@ -138,7 +138,7 @@ function createJournalEntryForDate(dateStr) {
         State.setFocusItem(res.createdItem);
       }
       // Note: render(), scheduleSave() and Menu.setCurrentList() are called by the caller
-      if (window.Menu && Menu.setCurrentList) Menu.setCurrentList(currentList);
+      Menu.setCurrentList(currentList);
       return true; // signal success
     } catch (e) {
       console.error('JournalHelper ensure failed', e);
@@ -180,7 +180,7 @@ function toggleSortOrder() {
   // Auto-sort after toggling
   sortJournal();
   
-  if (window.Menu && Menu.setCurrentList) Menu.setCurrentList(currentList);
+  Menu.setCurrentList(currentList);
   // Note: render() and scheduleSave() are called by sortJournal() -> caller
 }
 
@@ -207,7 +207,7 @@ function deleteSection(section) {
   found.parentArray.splice(found.index, 1);
 
   // update menu
-  if (window.Menu && Menu.setCurrentList) Menu.setCurrentList(currentList);
+  Menu.setCurrentList(currentList);
   // Note: render() and scheduleSave() are called by the caller
   return true;
 }
@@ -267,7 +267,7 @@ function selectList(name,data){
       Storage.scheduleSave();
     }
 
-    if (window.Menu && Menu.setCurrentList) Menu.setCurrentList(currentList);
+    Menu.setCurrentList(currentList);
   }
   else
     fetch(`/shopping/api.cgi/${name}`)
@@ -301,7 +301,7 @@ function selectList(name,data){
       // Note: render() is called by selectList internally
       
       Util.setListFavicon(name,currentList?.bgColor || '#fff');
-      if (window.Menu && Menu.setCurrentList) Menu.setCurrentList(currentList);
+      Menu.setCurrentList(currentList);
       State.clearBanner();
       
       // Call render here since we're async

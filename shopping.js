@@ -22,25 +22,14 @@
 
 // ================= Menu integration =================
 // menu.js is included by the server-side page; we do not inject it here.
-// Initialize Menu if available; otherwise wait for window 'load' as a fallback.
+// Initialize Menu - assume it's loaded.
 
 function initMenuIntegration(){
+  Menu.init();
   const allLists = State.getAllLists();
+  if (allLists) Menu.setAllLists(ListOps.getRecentListsForMenu());
   const currentList = State.getCurrentList();
-  if (window.Menu && Menu.init) {
-    Menu.init();
-    if (allLists && Menu.setAllLists) Menu.setAllLists(ListOps.getRecentListsForMenu());
-    if (currentList && Menu.setCurrentList) Menu.setCurrentList(currentList);
-  } else {
-    // Wait for the page resources to be loaded — server should have included menu.js
-    window.addEventListener('load', () => {
-      if (window.Menu && Menu.init) {
-        initMenuIntegration(); // try again
-      } else {
-        console.warn('Menu module not available. Ensure menu.js is included by the page.');
-      }
-    }, { once: true });
-  }
+  if (currentList) Menu.setCurrentList(currentList);
 }
 
 // Helper to get recent lists for menu (limit to 5 for mobile)
@@ -113,33 +102,25 @@ window.ShoppingApp = {
     currentList.bgColor = bg;
     Rendering.render();
     Storage.scheduleSave();
-    if (window.Menu && Menu.hideMenus) Menu.hideMenus();
+    Menu.hideMenus();
   },
   
   addItemToList: (anchor) => {
     const currentList = State.getCurrentList();
     if (!currentList) return;
     const defaultType = (currentList?.type === 'journal') ? 'journal-entry' : 'checkbox';
-    if (typeof AddItemForm !== 'undefined' && AddItemForm.show) {
-      AddItemForm.show(currentList.items, { parentSection: null, anchor: anchor || Rendering.menuButton, defaultType });
-    }
+    AddItemForm.show(currentList.items, { parentSection: null, anchor: anchor || Rendering.menuButton, defaultType });
   },
   
   addItemToSection: (section, anchor) => {
     if (!section || !Array.isArray(section.items)) return;
     const currentList = State.getCurrentList();
     const defaultType = (currentList?.type === 'journal') ? 'journal-entry' : 'checkbox';
-    if (typeof AddItemForm !== 'undefined' && AddItemForm.show) {
-      AddItemForm.show(section.items, { parentSection: section, anchor, defaultType });
-    }
+    AddItemForm.show(section.items, { parentSection: section, anchor, defaultType });
   },
   
   capturePhoto: () => {
-    if (typeof capturePhoto !== 'undefined') {
-      capturePhoto();
-    } else {
-      console.error('capturePhoto function not available');
-    }
+    capturePhoto();
   }
 };
 
@@ -147,24 +128,57 @@ window.ShoppingApp = {
 initMenuIntegration();
 
 // ================= Init =================
+// Check that all required modules are loaded
+function checkModules() {
+  const requiredModules = [
+    { name: 'State', obj: window.State },
+    { name: 'Rendering', obj: window.Rendering },
+    { name: 'Storage', obj: window.Storage },
+    { name: 'Util', obj: window.Util },
+    { name: 'ListOps', obj: window.ListOps },
+    { name: 'Menu', obj: window.Menu },
+    { name: 'AddItemForm', obj: window.AddItemForm },
+    { name: 'drag', obj: window.drag },
+    { name: 'JournalHelper', obj: window.JournalHelper },
+  ];
+  const requiredFunctions = [
+    { name: 'capturePhoto', func: typeof capturePhoto !== 'undefined' },
+    { name: 'initPhotoModule', func: typeof initPhotoModule !== 'undefined' },
+    { name: 'renderPhotoItem', func: typeof renderPhotoItem !== 'undefined' },
+  ];
+
+  const missing = [];
+  requiredModules.forEach(mod => {
+    if (!mod.obj) missing.push(mod.name);
+  });
+  requiredFunctions.forEach(func => {
+    if (!func.func) missing.push(func.name);
+  });
+
+  if (missing.length > 0) {
+    const msg = `Missing required modules/functions: ${missing.join(', ')}. Please ensure all JS files are included.`;
+    console.error(msg);
+    if (window.State && State.setBanner) {
+      State.setBanner(msg);
+    } else {
+      alert(msg);
+    }
+    throw new Error(msg);
+  }
+}
+
+checkModules();
+
 // Initialize add-item form module
-if (typeof AddItemForm !== 'undefined' && AddItemForm.init) {
-  AddItemForm.init();
-}
+AddItemForm.init();
 
-// Initialize drag module (if available).
-if (typeof drag !== 'undefined' && drag.init) {
-  drag.init();
-}
+// Initialize drag module.
+drag.init();
 
-if (typeof initPhotoModule !== 'undefined') {
-  initPhotoModule();
-}
+initPhotoModule();
 
 // Setup focus-check reload logic (moved to storage.js)
-if (window.Storage && Storage.setupFocusReloadCheck) {
-  Storage.setupFocusReloadCheck();
-}
+Storage.setupFocusReloadCheck();
 
 // Ask API for all available lists
 fetch('/shopping/api.cgi/')
@@ -188,7 +202,7 @@ fetch('/shopping/api.cgi/')
 
     if ( !want ) {
       Rendering.renderIndex();
-      if (window.Menu && Menu.setAllLists) Menu.setAllLists(ListOps.getRecentListsForMenu());
+      Menu.setAllLists(ListOps.getRecentListsForMenu());
       return;
     }
 
@@ -196,7 +210,7 @@ fetch('/shopping/api.cgi/')
     if (idx < 0) idx = 0;
 
     ListOps.selectList(allLists[idx].name);
-    if (window.Menu && Menu.setAllLists) Menu.setAllLists(ListOps.getRecentListsForMenu());
+    Menu.setAllLists(ListOps.getRecentListsForMenu());
   })
   .catch(err=>{
     console.log('Using default list:',err);

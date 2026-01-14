@@ -83,9 +83,7 @@ function renderItem(container,item,parentItems,parentSection){
     line.appendChild(cb);
 
     // Register the checkbox as the drag handle for items (drag.js should start only when dragging from this checkbox)
-    if (typeof drag !== 'undefined' && drag.registerDragHandle) {
-      drag.registerDragHandle(cb, { type: 'item', itemOrSection: item, parentArray: parentItems, domNode: line });
-    }
+    drag.registerDragHandle(cb, { type: 'item', itemOrSection: item, parentArray: parentItems, domNode: line });
   } else if (item.type === 'photo') {
     // Render photo items with camera icon as drag handle
     const bullet = document.createElement('span');
@@ -94,17 +92,11 @@ function renderItem(container,item,parentItems,parentSection){
     line.appendChild(bullet);
 
     // Register the bullet as the drag handle for photos
-    if (typeof drag !== 'undefined' && drag.registerDragHandle) {
-      drag.registerDragHandle(bullet, { type: 'item', itemOrSection: item, parentArray: parentItems, domNode: line });
-    }
+    drag.registerDragHandle(bullet, { type: 'item', itemOrSection: item, parentArray: parentItems, domNode: line });
 
-    if (typeof renderPhotoItem !== 'undefined') {
-      renderPhotoItem(line, item);
-    }
+    renderPhotoItem(line, item);
     // Register per-line hover and pointer handlers for showing inline drop line and accepting drops
-    if (typeof drag !== 'undefined' && drag.registerLine) {
-      drag.registerLine(line);
-    }
+    drag.registerLine(line);
     container.appendChild(line);
     return;
   } else {
@@ -115,9 +107,7 @@ function renderItem(container,item,parentItems,parentSection){
     line.appendChild(bullet);
 
     // Register the bullet as the drag handle for text items
-    if (typeof drag !== 'undefined' && drag.registerDragHandle) {
-      drag.registerDragHandle(bullet, { type: 'item', itemOrSection: item, parentArray: parentItems, domNode: line });
-    }
+    drag.registerDragHandle(bullet, { type: 'item', itemOrSection: item, parentArray: parentItems, domNode: line });
   }
   
   const span=document.createElement('span');
@@ -157,12 +147,8 @@ function renderItem(container,item,parentItems,parentSection){
         item.text = '';  // Clear the 'P' text but keep the line
         item.type = 'text';  // Ensure it's a text line
         // Store insertion context for photo.js - insert at current position (above this line)
-        if (typeof photoInsertContext !== 'undefined') {
-          photoInsertContext = { parentItems: parentItems, index: idx, emptyLineItem: item };
-        }
-        if (typeof capturePhoto !== 'undefined') {
-          capturePhoto();
-        }
+        photoInsertContext = { parentItems: parentItems, index: idx, emptyLineItem: item };
+        capturePhoto();
         State.setFocusItem(item);  // Focus stays on the cleared line
         render();
         Storage.scheduleSave();
@@ -210,9 +196,7 @@ function renderItem(container,item,parentItems,parentSection){
   line.appendChild(span);
 
   // Register per-line hover and pointer handlers for showing inline drop line and accepting drops
-  if (typeof drag !== 'undefined' && drag.registerLine) {
-    drag.registerLine(line);
-  }
+  drag.registerLine(line);
 
   container.appendChild(line);
 }
@@ -242,7 +226,7 @@ function renderSection(container,section,parentSections,parentEffectiveFilter){
           Storage.scheduleSave();
           ListOps.hideAppMenus();
         } else {
-          if (window.Menu && Menu.showSectionMenu) Menu.showSectionMenu(section, toggleBtn);
+          Menu.showSectionMenu(section, toggleBtn);
         }
       };
 
@@ -304,14 +288,10 @@ function renderSection(container,section,parentSections,parentEffectiveFilter){
   // attach references for drag computations
   header._section = section;
   header._parentSections = parentSections;
-  if (typeof drag !== 'undefined' && drag.registerSectionHeader) {
-    drag.registerSectionHeader(header);
-  }
+  drag.registerSectionHeader(header);
 
   // Register toggle button as the section drag handle
-  if (typeof drag !== 'undefined' && drag.registerDragHandle && State.getCurrentList()) {
-    drag.registerDragHandle(toggleBtn, { type: 'section', itemOrSection: section, parentArray: parentSections, domNode: sec });
-  }
+  drag.registerDragHandle(toggleBtn, { type: 'section', itemOrSection: section, parentArray: parentSections, domNode: sec });
 
   if(section.title.trim()==='' && State.getFocusItem()===null) State.setFocusItem(section);
 }

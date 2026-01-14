@@ -8,6 +8,7 @@
 - **Avoid heavy OOP** - Prefer functions over classes; simple objects over inheritance
 - **No IIFEs** - No wrapping code in `(function(){...})()` patterns
 - **"use strict"** - Always include at the top of each file
+- **Assume modules are loaded** - Check all required modules upfront in init; no defensive `if (window.X)` checks in runtime code
 
 ## Code Organization
 
@@ -23,6 +24,8 @@
 - Use `let` and `const` (not `var`)
 - Arrow functions for callbacks: `items.forEach(item => ...)`
 - Regular functions for top-level definitions: `function render() { ... }`
+- A comment at the closing brace of a top level function saying what ends here: '} // render'
+  but not for short functions that can be seen in a glance.
 - Template literals when constructing strings with variables
 - Optional chaining when appropriate: `currentList?.bgColor`
 - Not too many callbacks. 
@@ -61,3 +64,6 @@
 - Use `scheduleSave()` pattern for debounced saves
 - Keep data and UI in sync through re-rendering
 - Store references in DOM nodes using underscore prefix: `element._item = item`
+- Use `window.ShoppingApp` as the central API/facade for inter-module communication: 
+  modules expose functions via `ShoppingApp` rather than calling each other directly, 
+  to maintain encapsulation and a clean public interface
