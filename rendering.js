@@ -344,11 +344,18 @@ function render(target){
       titleContainer.style.color = Util.getContrastColor(currentList.bgColor || '#ffffff');
     }
     target = container;
+    // Remove existing content div if any
+    const existingContent = target.querySelector('#list-content');
+    if (existingContent) target.removeChild(existingContent);
+    const contentDiv = document.createElement('div');
+    contentDiv.id = 'list-content';
+    target.appendChild(contentDiv);
+    renderItems(contentDiv, currentList.items, currentList.items, currentList.filter || 'all');
   } else {
     target.style.backgroundColor = currentList.bgColor || '#ffffff';
     target.style.color = Util.getContrastColor(currentList.bgColor || '#ffffff');
+    renderItems(target, currentList.items, currentList.items, currentList.filter || 'all');
   }
-  renderItems(target,currentList.items,currentList.items, currentList.filter || 'all');
   const focusItem = State.getFocusItem();
   if (focusItem) {
     const lines = target.querySelectorAll('.line-text');
@@ -382,6 +389,102 @@ function render(target){
 // ==================== Index page =========================
 function renderIndex() {
   appContainer.innerHTML = '<h1>' + currentUser + "'s lists</h1>";
+  // Add the + New button
+  const newBtn = document.createElement('button');
+  newBtn.textContent = '+ New';
+  newBtn.onclick = () => showCreateDialog();
+  appContainer.appendChild(newBtn);
+
+  // Define showCreateDialog
+  function showCreateDialog() {
+    let dialog = document.getElementById('create-dialog');
+    if (!dialog) {
+      dialog = document.createElement('div');
+      dialog.id = 'create-dialog';
+      dialog.style.cssText = 'position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); display: flex; align-items: center; justify-content: center; z-index: 1000;';
+      
+      const content = document.createElement('div');
+      content.style.cssText = 'background: white; padding: 20px; border-radius: 5px; color: black;';
+      
+      const typeSelect = document.createElement('select');
+      typeSelect.innerHTML = '<option>List</option><option>Journal</option>';
+      
+      const nameInput = document.createElement('input');
+      nameInput.type = 'text';
+      nameInput.placeholder = 'Enter name';
+      nameInput.onkeydown = (e) => { if (e.key === 'Enter') createBtn.click(); };
+      
+      const createBtn = document.createElement('button');
+      createBtn.textContent = 'Create';
+      createBtn.onclick = () => {
+        const name = nameInput.value.trim();
+        if (!name) return;
+        const type = typeSelect.value;
+        const { name: safeName } = Storage.sanitizeListName(name);
+        const allLists = State.getAllLists();
+        if (allLists.find(l => l.name === safeName)) {
+          alert('A list with that name already exists. Selecting it instead.');
+          window.location.href = `${window.location.pathname}?l=${encodeURIComponent(safeName)}`;
+        } else {
+          const displayTitle = name;
+          let newListObj;
+          if (type === 'Journal') {
+            newListObj = {
+              name: safeName,
+              title: displayTitle,
+              type: 'journal',
+              sortOrder: 'newest-first',
+              items: []
+            };
+          } else {
+            newListObj = {
+              name: safeName,
+              title: displayTitle,
+              type: 'checklist',
+              items:[{
+                type:"section",
+                title:displayTitle,
+                collapsed:false,
+                items:[{type:"item", text:"", checked:false}]
+              }]
+            };
+          }
+          fetch(`/shopping/api.cgi/${safeName}`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(newListObj)
+          }).then(r => {
+            if (r.ok) {
+              window.location.href = `${window.location.pathname}?l=${encodeURIComponent(safeName)}`;
+            } else {
+              alert('Failed to create list');
+            }
+          }).catch(err => {
+            alert('Error creating list: ' + err);
+          });
+        }
+        dialog.style.display = 'none';
+        nameInput.value = '';
+      };
+      
+      const cancelBtn = document.createElement('button');
+      cancelBtn.textContent = 'Cancel';
+      cancelBtn.onclick = () => dialog.style.display = 'none';
+      
+      content.appendChild(document.createTextNode('Type: '));
+      content.appendChild(typeSelect);
+      content.appendChild(document.createElement('br'));
+      content.appendChild(document.createTextNode('Name: '));
+      content.appendChild(nameInput);
+      content.appendChild(document.createElement('br'));
+      content.appendChild(createBtn);
+      content.appendChild(cancelBtn);
+      dialog.appendChild(content);
+      document.body.appendChild(dialog);
+    }
+    dialog.style.display = 'flex';
+  }
+
   document.body.style.backgroundColor = "#444";
   document.body.style.color = "#ccc";
   State.setCurrentList(null);  // indicator for not showing menu buttons
@@ -419,6 +522,11 @@ function renderIndex() {
         box.appendChild(itemsDiv);
         renderItems(itemsDiv, list.items, list.items, 'unchecked');
       });
+  }
+  if (allLists.length === 0) {
+    const noListsMsg = document.createElement('p');
+    noListsMsg.textContent = 'No lists found.';
+    index.appendChild(noListsMsg);
   }
   appContainer.appendChild(index);
 }
