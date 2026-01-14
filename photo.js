@@ -3,11 +3,15 @@
 // Uses State API (State.getCurrentList, State.getFocusItem, State.setFocusItem)
 // and ShoppingApp API (ShoppingApp.render, ShoppingApp.scheduleSave)
 
-// Hidden file input for fallback capture/select
+"use strict";
+
+// ================= Module Variables =================
 let photoFileInput = null;
 
 // Store where to insert the photo (set when 'p' is typed)
 let photoInsertContext = null;  // { parentItems, index }
+
+// ================= Initialization =================
 
 function initPhotoModule() {
   // Create hidden file input for camera access
@@ -28,6 +32,8 @@ function initPhotoModule() {
     }
   };
 }
+
+// ================= Photo Capture and Upload =================
 
 function capturePhoto() {
   if (photoFileInput) {
@@ -63,6 +69,8 @@ function uploadPhoto(file) {
     alert('Upload failed: ' + err.message);
   });
 }
+
+// ================= Photo Insertion =================
 
 function insertPhotoItem(filename) {
   const currentList = State.getCurrentList();
@@ -124,11 +132,11 @@ function insertPhotoItem(filename) {
     State.setFocusItem(photoItem);
   }
   
-  if (window.ShoppingApp) {
-    ShoppingApp.render();
-    ShoppingApp.scheduleSave();
-  }
+  ShoppingApp.render();
+  ShoppingApp.scheduleSave();
 }
+
+// ================= Helper Functions =================
 
 function findParentArray(container, targetItem) {
   // Helper: recursively find which array contains targetItem
@@ -145,6 +153,8 @@ function findParentArray(container, targetItem) {
   }
   return null;
 }
+
+// ================= Rendering =================
 
 function renderPhotoItem(line, item) {
   console.log('renderPhotoItem: filename=' + item.filename);
@@ -171,3 +181,12 @@ function renderPhotoItem(line, item) {
   photoDiv.appendChild(img);
   line.appendChild(photoDiv);
 }
+
+// ================= Public API =================
+window.Photo = {
+  initPhotoModule,
+  capturePhoto,
+  uploadPhoto,
+  insertPhotoItem,
+  renderPhotoItem
+};

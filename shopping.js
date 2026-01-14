@@ -26,10 +26,6 @@
 
 function initMenuIntegration(){
   Menu.init();
-  const allLists = State.getAllLists();
-  if (allLists) Menu.setAllLists(ListOps.getRecentListsForMenu());
-  const currentList = State.getCurrentList();
-  if (currentList) Menu.setCurrentList(currentList);
 }
 
 // Helper to get recent lists for menu (limit to 5 for mobile)
@@ -202,7 +198,6 @@ fetch('/shopping/api.cgi/')
 
     if ( !want ) {
       Rendering.renderIndex();
-      Menu.setAllLists(ListOps.getRecentListsForMenu());
       return;
     }
 
@@ -210,7 +205,6 @@ fetch('/shopping/api.cgi/')
     if (idx < 0) idx = 0;
 
     ListOps.selectList(allLists[idx].name);
-    Menu.setAllLists(ListOps.getRecentListsForMenu());
   })
   .catch(err=>{
     console.log('Using default list:',err);

@@ -3,22 +3,27 @@
 // add-item.js — Add item form UI module
 // Provides a popup form for adding new items/sections to lists
 
-const AddItemForm = (function() {
-  // Module state
-  let addItemForm = null;
-  let addItemContext = null; // { targetArray, parentSection }
-  let suppressNextAddItemDocClose = false;
+// ================= Module State =================
+let addItemForm = null;
+let addItemContext = null; // { targetArray, parentSection }
+let suppressNextAddItemDocClose = false;
 
-  function defaultItemTypeForCurrentList() {
-    const currentList = window.ShoppingApp ? ShoppingApp.getCurrentList() : null;
-    return (currentList?.type === 'journal') ? 'text' : 'checkbox';
-  }
+// ================= Functions =================
 
-  function hide() {
-    if (!addItemForm) return;
-    addItemForm.classList.add('hidden');
-    addItemContext = null;
-  }
+function init() {
+  // No initialization needed - uses global ShoppingApp
+}
+
+function defaultItemTypeForCurrentList() {
+  const currentList = ShoppingApp.getCurrentList();
+  return (currentList?.type === 'journal') ? 'text' : 'checkbox';
+}
+
+function hide() {
+  if (!addItemForm) return;
+  addItemForm.classList.add('hidden');
+  addItemContext = null;
+}
 
   function ensureForm() {
     if (addItemForm) return addItemForm;
@@ -100,11 +105,11 @@ const AddItemForm = (function() {
       else addItemContext.targetArray.push(newItem);
 
       const focusItem = (t === 'section') ? newItem.items[0] : newItem;
-      if (window.ShoppingApp && ShoppingApp.setFocusItem) ShoppingApp.setFocusItem(focusItem);
+      ShoppingApp.setFocusItem(focusItem);
       hide();
-      if (window.ShoppingApp && ShoppingApp.render) ShoppingApp.render();
-      if (window.ShoppingApp && ShoppingApp.scheduleSave) ShoppingApp.scheduleSave();
-      if (window.ShoppingApp && ShoppingApp.hideAppMenus) ShoppingApp.hideAppMenus();
+      ShoppingApp.render();
+      ShoppingApp.scheduleSave();
+      ShoppingApp.hideAppMenus();
     }
 
     topBtn.onclick = () => handleAdd('top');
@@ -116,11 +121,9 @@ const AddItemForm = (function() {
       const val = addItemForm._typeSelect.value;
       if (val === 'journal-entry') {
         const dateStr = addItemForm._dateInput.value.trim();
-        if (window.ShoppingApp && ShoppingApp.createJournalEntryForDate) {
-          ShoppingApp.createJournalEntryForDate(dateStr);
-        }
+        ShoppingApp.createJournalEntryForDate(dateStr);
         hide();
-        if (window.ShoppingApp && ShoppingApp.hideAppMenus) ShoppingApp.hideAppMenus();
+        ShoppingApp.hideAppMenus();
       }
     };
 
@@ -150,14 +153,14 @@ const AddItemForm = (function() {
   }
 
   function show(targetArray, { parentSection = null, anchor = null, defaultType = null } = {}) {
-    const currentList = ShoppingApp.getCurrentList ? ShoppingApp.getCurrentList() : null;
+    const currentList = ShoppingApp.getCurrentList();
     if (!currentList || !Array.isArray(targetArray)) return;
     
     const form = ensureForm();
     addItemContext = { targetArray, parentSection };
     suppressNextAddItemDocClose = true; // ignore the originating click (menu item)
     
-    const bg = ShoppingApp.getEffectiveBgColor ? ShoppingApp.getEffectiveBgColor(parentSection) : '#ffffff';
+    const bg = ShoppingApp.getEffectiveBgColor(parentSection);
     form.style.backgroundColor = bg;
     form.style.color = Util.getContrastColor(bg);
     
@@ -195,16 +198,8 @@ const AddItemForm = (function() {
   }
 
   // Public API
-  return {
-    init: function() {
-      // No initialization needed - uses global ShoppingApp
-    },
-    show: show,
-    hide: hide
+  window.AddItemForm = {
+    init,
+    show,
+    hide
   };
-})();
-
-// Attach to global window
-if (typeof window !== 'undefined') {
-  window.AddItemForm = AddItemForm;
-}

@@ -2,6 +2,8 @@
 // List-level operations: CRUD, sorting, filtering, navigation
 // Extracted from shopping.js Phase 4
 
+"use strict";
+
 // ============== Helper functions =================
 
 function getRecentListsForMenu() {
@@ -67,7 +69,6 @@ function createNewList(name=null, type='checklist') {
 
   const allLists = State.getAllLists();
   if (!allLists.find(l => l.name === safeName)) allLists.push({name: safeName, title: displayTitle});
-  Menu.setAllLists(getRecentListsForMenu());
   selectList(safeName,newListObj);
   Storage.scheduleSave();
 }
@@ -81,7 +82,6 @@ function deleteCurrentList() {
   .then ( data => {
     const allLists = State.getAllLists();
     State.setAllLists(allLists.filter(l=>l.name!==currentList.name));
-    Menu.setAllLists(getRecentListsForMenu());
     indexLink();
   })
   .catch(console.error);
@@ -96,16 +96,11 @@ function toggleListType() {
   currentList.type = now;
 
   // If switching to journal, ensure today's journal path exists
-  if (now === 'journal' && window.JournalHelper) {
-    try {
-      const res = JournalHelper.ensureJournalPathForDate(currentList, new Date());
-      if (res && res.createdItem) State.setFocusItem(res.createdItem);
-    } catch (e) {
-      console.error('JournalHelper ensure failed', e);
-    }
+  if (now === 'journal') {
+    const res = JournalHelper.ensureJournalPathForDate(currentList, new Date());
+    if (res && res.createdItem) State.setFocusItem(res.createdItem);
   }
 
-  Menu.setCurrentList(currentList);
   // Note: render() and scheduleSave() are called by the caller (shopping.js)
 }
 
@@ -131,20 +126,12 @@ function createJournalEntryForDate(dateStr) {
     if (isNaN(date.getTime())) { alert('Invalid date'); return; }
   }
 
-  if (window.JournalHelper) {
-    try {
-      const res = JournalHelper.ensureJournalPathForDate(currentList, date);
-      if (res && res.createdItem) {
-        State.setFocusItem(res.createdItem);
-      }
-      // Note: render(), scheduleSave() and Menu.setCurrentList() are called by the caller
-      Menu.setCurrentList(currentList);
-      return true; // signal success
-    } catch (e) {
-      console.error('JournalHelper ensure failed', e);
-      return false;
-    }
+  const res = JournalHelper.ensureJournalPathForDate(currentList, date);
+  if (res && res.createdItem) {
+    State.setFocusItem(res.createdItem);
   }
+  // Note: render(), scheduleSave() and Menu.setCurrentList() are called by the caller
+  return true; // signal success
 }
 
 // ============== Sorting helpers and functions for journal lists ==============
@@ -178,9 +165,8 @@ function toggleSortOrder() {
   currentList.sortOrder = current === 'newest-first' ? 'oldest-first' : 'newest-first';
   
   // Auto-sort after toggling
-  sortJournal();
+  sortJournal(currentList);
   
-  Menu.setCurrentList(currentList);
   // Note: render() and scheduleSave() are called by sortJournal() -> caller
 }
 
@@ -206,8 +192,6 @@ function deleteSection(section) {
   // perform deletion
   found.parentArray.splice(found.index, 1);
 
-  // update menu
-  Menu.setCurrentList(currentList);
   // Note: render() and scheduleSave() are called by the caller
   return true;
 }
@@ -260,14 +244,12 @@ function selectList(name,data){
     }
     
     // Call render here in the synchronous path
-    if (window.ShoppingApp && ShoppingApp.render) ShoppingApp.render();
+    ShoppingApp.render();
     
     // Also call scheduleSave if journal entry was created
-    if (window.JournalHelper && currentList?.type === 'journal' && window.Storage) {
+    if (currentList?.type === 'journal') {
       Storage.scheduleSave();
     }
-
-    Menu.setCurrentList(currentList);
   }
   else
     fetch(`/shopping/api.cgi/${name}`)
@@ -287,25 +269,20 @@ function selectList(name,data){
       listName.textContent = displayTitle;
 
       // ensure journal top path if needed
-      if (window.JournalHelper && currentList?.type === 'journal') {
-        try {
-          const res = JournalHelper.ensureJournalPathForDate(currentList, new Date());
-          if (res && res.createdItem) {
-            State.setFocusItem(res.createdItem);
-            // Note: render() and scheduleSave() are called by selectList internally
-          }
-        } catch (e) {
-          console.error('JournalHelper ensure failed', e);
+      if (currentList?.type === 'journal') {
+        const res = JournalHelper.ensureJournalPathForDate(currentList, new Date());
+        if (res && res.createdItem) {
+          State.setFocusItem(res.createdItem);
+          // Note: render() and scheduleSave() are called by selectList internally
         }
       }
       // Note: render() is called by selectList internally
       
       Util.setListFavicon(name,currentList?.bgColor || '#fff');
-      Menu.setCurrentList(currentList);
       State.clearBanner();
       
       // Call render here since we're async
-      if (window.ShoppingApp && ShoppingApp.render) ShoppingApp.render();
+      ShoppingApp.render();
     })
     .catch(err => {
       console.error('Failed to load list', err);

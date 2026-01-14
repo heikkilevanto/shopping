@@ -140,9 +140,7 @@ function setupFocusReloadCheck() {
         State.setIsSaving(false);
         clearTimeout(State.getSaveTimeout());
         // Trigger render through ShoppingApp
-        if (window.ShoppingApp && ShoppingApp.render) {
-          ShoppingApp.render();
-        }
+        ShoppingApp.render();
         // Brief status update
         State.updateStatus();
         // Show reload indicator briefly

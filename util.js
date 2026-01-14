@@ -1,6 +1,8 @@
 // util.js - Utility functions for the shopping app
 // Provides window.Util namespace with helper functions
 
+"use strict";
+
 window.Util = {
   getContrastColor(hex) {
     // remove leading #
@@ -147,10 +149,8 @@ window.Util = {
     });
     if (doRender) {
       // Delegate to ShoppingApp for render and scheduleSave
-      if (window.ShoppingApp) {
-        if (ShoppingApp.render) ShoppingApp.render();
-        if (ShoppingApp.scheduleSave) ShoppingApp.scheduleSave();
-      }
+      ShoppingApp.render();
+      ShoppingApp.scheduleSave();
     }
   },
 

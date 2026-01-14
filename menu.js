@@ -1,15 +1,16 @@
 // menu.js — extracted menu handling for shopping app
 // Exposes a global Menu object with init(), setAllLists(), setCurrentList(), hideMenus(), showSectionMenu()
 
-(function(window, document){
-  const doc = document;
-  let menu, secMenu, subMenu;
-  let allLists = [];
-  let currentList = null;
-  let lastSectionAnchor = null;
+'use strict';
 
-  // Helper: Create a styled menu element
-  function createStyledMenu(){
+// Module state
+let menu, secMenu, subMenu;
+let lastSectionAnchor = null;
+
+// ================= Helper Functions =================
+
+// Helper: Create a styled menu element
+function createStyledMenu(){
     const menuEl = document.createElement('div');
     menuEl.className = 'menu';
     menuEl.style.display = 'none';
@@ -69,11 +70,12 @@
   // Helper: Apply background color and contrasting text color to element
   function applyMenuColors(element, bgColor){
     element.style.background = bgColor;
-    element.style.color = typeof Util !== 'undefined' && Util.getContrastColor ? Util.getContrastColor(bgColor) : '#000';
+    element.style.color = Util.getContrastColor(bgColor);
   }
 
   // Helper: Get the effective background color for a section (walks up parent chain)
   function getEffectiveBgColor(section){
+    const currentList = State.getCurrentList();
     if (!currentList) return '#ffffff';
     if (section.bgColor) return section.bgColor;
     
@@ -95,7 +97,7 @@
 
     // Section menu
     secMenu = createStyledMenu();
-    const bg = currentList?.bgColor || '#fff';
+    const bg = State.getCurrentList()?.bgColor || '#fff';
     applyMenuColors(secMenu, bg);
     document.body.appendChild(secMenu);
 
@@ -122,30 +124,26 @@
     if ( section.collapsed ) {
       addMenuItem(secMenu,"Expand", () => {
         section.collapsed = false;
-        ShoppingApp.scheduleSave && ShoppingApp.scheduleSave();
-        ShoppingApp.render && ShoppingApp.render();
+        ShoppingApp.scheduleSave();
+        ShoppingApp.render();
       });
     } else {
       addMenuItem(secMenu,"Collapse", () => {
         section.collapsed = true;
-        ShoppingApp.scheduleSave && ShoppingApp.scheduleSave();
-        ShoppingApp.render && ShoppingApp.render();
+        ShoppingApp.scheduleSave();
+        ShoppingApp.render();
       });
     }
 
     addMenuItem(secMenu,"Uncheck All", () => {
       // delegate to app
-      ShoppingApp.uncheckAllSection && ShoppingApp.uncheckAllSection(section);
-      // fallback to global uncheckAll if provided
-      if (!ShoppingApp.uncheckAllSection && ShoppingApp.uncheckAll) ShoppingApp.uncheckAll();
+      ShoppingApp.uncheckAllSection(section);
     });
 
     createFilterButtons(secMenu, ['all','checked','unchecked','none'], section.filter, (f) => {
       section.filter = f === 'none' ? '' : f;
-      if (window.ShoppingApp) {
-        ShoppingApp.scheduleSave();
-        ShoppingApp.render();
-      }
+      ShoppingApp.scheduleSave();
+      ShoppingApp.render();
       hideMenus();
     });
 
@@ -153,15 +151,13 @@
     createColorPicker(secMenu, 'Color: ', effectiveBg, (value) => {
       section.bgColor = value;
       applyMenuColors(secMenu, value);
-      if (window.ShoppingApp) {
-        ShoppingApp.scheduleSave();
-        ShoppingApp.render();
-      }
+      ShoppingApp.scheduleSave();
+      ShoppingApp.render();
       hideMenus();
     });
 
     // If the current list is a journal, expose "Sort Section" here
-    if (currentList && currentList.type === 'journal' && window.ShoppingApp && typeof ShoppingApp.sortSection === 'function') {
+    if (State.getCurrentList() && State.getCurrentList().type === 'journal') {
       secMenu.appendChild(createSeparator());
       addMenuItem(secMenu, 'Sort Section', () => {
         ShoppingApp.sortSection(section);
@@ -169,18 +165,14 @@
     }
 
     // Add Item...
-    if (window.ShoppingApp && typeof ShoppingApp.addItemToSection === 'function') {
-      addMenuItem(secMenu, 'Add Item...', () => {
-        ShoppingApp.addItemToSection(section, lastSectionAnchor || secMenu);
-      });
-    }
+    addMenuItem(secMenu, 'Add Item...', () => {
+      ShoppingApp.addItemToSection(section, lastSectionAnchor || secMenu);
+    });
 
     // Delete Section (available for all lists)
     secMenu.appendChild(createSeparator());
     addMenuItem(secMenu, 'Delete Section', () => {
-      if (window.ShoppingApp && typeof ShoppingApp.deleteSection === 'function') {
-        ShoppingApp.deleteSection(section);
-      }
+      ShoppingApp.deleteSection(section);
     });
 
     applyMenuColors(secMenu, effectiveBg);
@@ -220,11 +212,11 @@
     });
 
     // Only show current list actions if there's a current list
-    if (currentList) {
+    if (State.getCurrentList()) {
       menu.appendChild(createSeparator());
       
       // ===== CURRENT LIST SECTION =====
-      addMenuHeader(menu, currentList.title || currentList.name);
+      addMenuHeader(menu, State.getCurrentList().title || State.getCurrentList().name);
       
       // Add Item to current list
       if (window.ShoppingApp && typeof ShoppingApp.addItemToList === 'function') {
@@ -306,7 +298,7 @@
 
     // ===== SWITCH TO SECTION =====
     addMenuHeader(menu, 'Switch to List');
-    const switchLists = (allLists || []).filter(lst => !currentList || lst.name !== currentList.name);
+    const switchLists = (State.getAllLists() || []).filter(lst => !State.getCurrentList() || lst.name !== State.getCurrentList().name);
     
     // list entries (exclude current list)
     switchLists.forEach(lst=>{
@@ -316,7 +308,7 @@
       a.style.display = 'block';
       a.style.padding = '4px 12px';
       a.style.cursor = 'pointer';
-      if (lst.name === currentList?.name) {
+      if (lst.name === menuCurrentList?.name) {
         a.style.fontWeight = 'bold';
       }
       // Allow natural navigation so the list reloads fully
@@ -392,7 +384,7 @@
   function showSubmenuAt(anchor, buildFn){
     if (!subMenu) return;
     subMenu.innerHTML = '';
-    const bg = currentList?.bgColor || '#ffffff';
+    const bg = State.getCurrentList()?.bgColor || '#ffffff';
     applyMenuColors(subMenu, bg);
     buildFn(subMenu);
     const rect = anchor.getBoundingClientRect();
@@ -403,7 +395,7 @@
 
   function buildMenuInternal(){
     menu.innerHTML='';
-    const bg = currentList?.bgColor || '#ffffff';
+    const bg = State.getCurrentList()?.bgColor || '#ffffff';
     applyMenuColors(menu, bg);
 
     // New… submenu
@@ -412,18 +404,14 @@
       addMenuItem(sm, 'Journal', () => {
         const name = window.prompt ? window.prompt('Enter new journal name:') : null;
         if (name !== null) {
-          if (window.ShoppingApp && typeof ShoppingApp.createNewList === 'function') {
-            ShoppingApp.createNewList(name, 'journal');
-          } else if (window.ShoppingApp && typeof ShoppingApp.createNew === 'function') {
-            ShoppingApp.createNew(name, 'journal');
-          }
+          ShoppingApp.createNewList(name, 'journal');
         }
       });
     });
 
     // Add to … opens add-item dialog directly
-    if (currentList && window.ShoppingApp && typeof ShoppingApp.addItemToList === 'function') {
-      const displayTitle = currentList.title || currentList.name;
+    if (State.getCurrentList()) {
+      const displayTitle = State.getCurrentList().title || State.getCurrentList().name;
       addMenuItem(menu, `Add to ${displayTitle}…`, () => {
         ShoppingApp.addItemToList(ShoppingApp.menuButton || menu);
       });
@@ -436,10 +424,10 @@
       
       // Filters section with button style (matching section menu)
       sm.appendChild(createSeparator());
-      createFilterButtons(sm, ['all','checked','unchecked','none'], currentList?.filter || 'all', (f) => {
-        if (!currentList) return;
+      createFilterButtons(sm, ['all','checked','unchecked','none'], State.getCurrentList()?.filter || 'all', (f) => {
+        if (!State.getCurrentList()) return;
         // Clear section filters first (before setting list filter)
-        if (currentList.items) {
+        if (State.getCurrentList().items) {
           const clearSectionFilters = (items) => {
             items.forEach(item => {
               if (item.type === 'section') {
@@ -448,10 +436,10 @@
               }
             });
           };
-          clearSectionFilters(currentList.items);
+          clearSectionFilters(State.getCurrentList().items);
         }
         // Now set the list-level filter
-        currentList.filter = f === 'none' ? '' : f;
+        State.getCurrentList().filter = f === 'none' ? '' : f;
         if (window.ShoppingApp) {
           ShoppingApp.scheduleSave();
           ShoppingApp.render();
@@ -465,7 +453,7 @@
     // Settings… submenu
     addTrigger(menu, 'Settings…', (sm) => {
       // Background color picker
-      createColorPicker(sm, 'Background: ', currentList?.bgColor || '#ffffff', (val) => {
+      createColorPicker(sm, 'Background: ', State.getCurrentList()?.bgColor || '#ffffff', (val) => {
         if (ShoppingApp.changeCurrentBg) ShoppingApp.changeCurrentBg(val);
       });
       // Toggle journal mode
@@ -475,14 +463,14 @@
         }
       });
       // Sort Journal (only for journal type lists)
-      if (currentList && currentList.type === 'journal' && window.ShoppingApp && typeof ShoppingApp.sortJournal === 'function') {
+      if (State.getCurrentList() && State.getCurrentList().type === 'journal' && window.ShoppingApp && typeof ShoppingApp.sortJournal === 'function') {
         addMenuItem(sm, 'Sort Journal', () => {
           ShoppingApp.sortJournal();
         });
         
         // Toggle sort order
         if (typeof ShoppingApp.toggleSortOrder === 'function') {
-          const sortOrder = currentList.sortOrder || 'newest-first';
+          const sortOrder = State.getCurrentList().sortOrder || 'newest-first';
           const label = sortOrder === 'newest-first' ? 'Sort: Newest First ⬇' : 'Sort: Oldest First ⬆';
           addMenuItem(sm, label, () => {
             ShoppingApp.toggleSortOrder();
@@ -492,9 +480,9 @@
       // Uncheck all moved to Settings
       addMenuItem(sm, 'Uncheck All', ShoppingApp.uncheckAll || (()=>{}));
       // Delete action with type + name
-      if (currentList) {
-        const typeWord = (currentList.type === 'journal') ? 'Journal' : 'List';
-        const displayTitle = currentList.title || currentList.name;
+      if (State.getCurrentList()) {
+        const typeWord = (State.getCurrentList().type === 'journal') ? 'Journal' : 'List';
+        const displayTitle = State.getCurrentList().title || State.getCurrentList().name;
         addMenuItem(sm, `Delete ${typeWord} "${displayTitle}"`, ShoppingApp.deleteCurrentList || (()=>{}));
       }
     });
@@ -502,22 +490,24 @@
     menu.appendChild(createSeparator());
 
     // Recent lists (API decides count) and All Lists… (exclude current list)
-    const recent = (allLists || []).filter(lst => !currentList || lst.name !== currentList.name);
+    const recent = (State.getAllLists() || []).filter(lst => !State.getCurrentList() || lst.name !== State.getCurrentList().name).slice(0, 5);
     recent.forEach(lst=>{
       const a = document.createElement('a');
-      const prefix = lst.name === currentList?.name ? '• ' : '';
+      const prefix = lst.name === State.getCurrentList()?.name ? '• ' : '';
       a.textContent = prefix + lst.name;
       a.href = `?l=${encodeURIComponent(lst.name)}`;
       a.style.display = 'block';
       a.style.padding = '4px 12px';
       a.style.cursor = 'pointer';
-      if (lst.name === currentList?.name) {
+      if (lst.name === State.getCurrentList()?.name) {
         a.style.fontWeight = 'bold';
       }
       // Let anchors navigate normally so the new list loads fresh
       a.onclick = () => hideMenus();
       menu.appendChild(a);
     });
+
+    menu.appendChild(createSeparator());
 
     // Link to index page
     const allLink = document.createElement('a');
@@ -534,15 +524,10 @@
 
   const Menu = {
     init(){
-      if (!window.ShoppingApp) {
-        console.error('Menu.init: ShoppingApp not available');
-        return;
-      }
-      if (!window.ShoppingApp.menuButton) console.warn('Menu.init: menuButton not provided');
       if (!menu || !secMenu || !subMenu) createMenuElements();
 
       // attach the menu button handler
-      window.ShoppingApp.menuButton.onclick = (e) => {
+      ShoppingApp.menuButton.onclick = (e) => {
         e.stopPropagation();
         if (menu.style.display === 'none') showMainMenu(); else hideMenus();
       };
@@ -550,8 +535,7 @@
       document.addEventListener('click', onDocumentClick);
       document.addEventListener('keydown', onDocumentKey);
     },
-    setAllLists(lists){ allLists = lists || []; rebuildOpenMenus(); },
-    setCurrentList(list){ currentList = list || null; rebuildOpenMenus(); },
+
     hideMenus,
     showSectionMenu,
     // convenience for other modules
@@ -559,5 +543,3 @@
   };
 
   window.Menu = Menu;
-
-})(window, document);

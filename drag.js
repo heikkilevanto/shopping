@@ -1,24 +1,25 @@
 /* Drag-drop handling */
 
-(function () {
-  // Module-level state
-  let state = {
-    dragActive: false,
-    pointerId: null,
-    startPos: null,
-    draggedMeta: null,
-    ghostEl: null,
-    dropMarker: null,
-    targetParentArray: null,
-    targetIndex: null,
-    autoScrollTimer: null,
-    // click suppression state
-    suppressClickTarget: null,
-    clickSuppressor: null,
-    justDropped: false
-  };
+'use strict';
 
-  function createDropMarker() {
+// Module-level state
+let state = {
+  dragActive: false,
+  pointerId: null,
+  startPos: null,
+  draggedMeta: null,
+  ghostEl: null,
+  dropMarker: null,
+  targetParentArray: null,
+  targetIndex: null,
+  autoScrollTimer: null,
+  // click suppression state
+  suppressClickTarget: null,
+  clickSuppressor: null,
+  justDropped: false
+};
+
+function createDropMarker() {
     const el = document.createElement('div');
     el.className = 'drop-marker';
     document.body.appendChild(el);
@@ -46,15 +47,8 @@
     } catch (e) { return `Array(len=${arr.length})`; }
   }
 
-  const api = {
+  const dragApi = {
     init() {
-      if (!window.ShoppingApp) {
-        console.warn('drag.init: ShoppingApp not available');
-        return;
-      }
-      if (!ShoppingApp.container || !ShoppingApp.render || !ShoppingApp.scheduleSave) {
-        console.warn('drag.init: missing required ShoppingApp methods (container, render, scheduleSave)');
-      }
       state.dropMarker = createDropMarker();
       console.debug('drag.init', { container: ShoppingApp.container });
     },
@@ -81,9 +75,9 @@
         const insertIndex = (idx >= 0) ? idx + 1 : null;
         console.debug('pointerup on .line while dragging', { lineItem: describeNode(lineEl._item), parentArray: describeArray(parentArray), idx, insertIndex });
         if (insertIndex !== null) {
-          api.dropHere(state.draggedMeta, parentArray, insertIndex);
+          dragApi.dropHere(state.draggedMeta, parentArray, insertIndex);
         } else {
-          api.cancelDrag();
+          dragApi.cancelDrag();
         }
       });
     },
@@ -108,9 +102,9 @@
         const section = headerEl._section;
         console.debug('pointerup on section header while dragging', { headerSection: describeNode(section), headerParentSections: describeArray(headerEl._parentSections) });
         if (section && Array.isArray(section.items)) {
-          api.dropHere(state.draggedMeta, section.items, 0);
+          dragApi.dropHere(state.draggedMeta, section.items, 0);
         } else {
-          api.cancelDrag();
+          dragApi.cancelDrag();
         }
       });
     },
@@ -220,9 +214,9 @@
             return;
           }
           if (state.targetParentArray && typeof state.targetIndex === 'number') {
-            api.dropHere(state.draggedMeta, state.targetParentArray, state.targetIndex);
+            dragApi.dropHere(state.draggedMeta, state.targetParentArray, state.targetIndex);
           } else {
-            api.cancelDrag();
+            dragApi.cancelDrag();
           }
           try { handleEl.releasePointerCapture(ev.pointerId); } catch (e) {}
           window.removeEventListener('pointermove', onPointerMove, true);
@@ -313,13 +307,9 @@
         removeClickSuppressor();
       }, 300);
 
-      try {
-        console.debug('calling render() and scheduleSave() after successful drop');
-        window.ShoppingApp.render();
-        window.ShoppingApp.scheduleSave();
-      } catch (e) {
-        console.error('drag.dropHere: error calling render/scheduleSave', e);
-      }
+      console.debug('calling render() and scheduleSave() after successful drop');
+      ShoppingApp.render();
+      ShoppingApp.scheduleSave();
     },
 
     cancelDrag() {
@@ -374,8 +364,8 @@
       state.dropMarker.style.width = rect.width + 'px';
       state.dropMarker.style.top = (rect.bottom - 2 + window.scrollY) + 'px';
       state.dropMarker.classList.remove('hidden');
-      state.targetParentArray = window.ShoppingApp && window.ShoppingApp.getCurrentList() ? window.ShoppingApp.getCurrentList().items : null;
-      state.targetIndex = state.targetParentArray ? state.targetParentArray.length : null;
+      state.targetParentArray = ShoppingApp.getCurrentList().items;
+      state.targetIndex = state.targetParentArray.length;
       console.debug('computeAndShowTarget: over container (end)', { targetParentArray: describeArray(state.targetParentArray), targetIndex: state.targetIndex });
       return;
     }
@@ -421,7 +411,7 @@
   }
 
   function handleAutoScroll(clientY) {
-    const container = window.ShoppingApp.container;
+    const container = ShoppingApp.container;
     if (!container) return;
     const rect = container.getBoundingClientRect();
     const margin = 40; // autoScroll margin
@@ -449,5 +439,4 @@
     state.suppressClickTarget = null;
   }
 
-  window.drag = api;
-})();
+  window.drag = dragApi;

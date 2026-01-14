@@ -10,20 +10,20 @@
 // human text after the numeric prefix, e.g. "2025-12-24 Xmas Eve".
 // No hidden metadata is used.
 
-const JournalHelper = (function() {
-  // Local helpers (function scope inside this module object)
-  function pad(n) { return n < 10 ? '0' + n : String(n); }
+// ================= Helper Functions =================
 
-  function monthName(date, locale) {
-    // If locale is undefined, browser default locale is used
-    return date.toLocaleString(locale, { month: 'long' });
-  }
-  function weekdayShort(date, locale) {
-    return date.toLocaleString(locale, { weekday: 'short' });
-  }
+function pad(n) { return n < 10 ? '0' + n : String(n); }
 
-  // Given a Date, return canonical prefixes and suggested titles
-  function formatPrefixes(date, opts) {
+function monthName(date, locale) {
+  // If locale is undefined, browser default locale is used
+  return date.toLocaleString(locale, { month: 'long' });
+}
+function weekdayShort(date, locale) {
+  return date.toLocaleString(locale, { weekday: 'short' });
+}
+
+// Given a Date, return canonical prefixes and suggested titles
+function formatPrefixes(date, opts) {
     opts = opts || {};
     const locale = opts.locale || undefined; // undefined lets browser use default
     const y = date.getFullYear();
@@ -265,7 +265,7 @@ const JournalHelper = (function() {
   }
 
   // Public API
-  return {
+  window.JournalHelper = {
     formatPrefixes,
     findSectionStartingWith,
     ensureJournalPathForDate,
@@ -274,9 +274,3 @@ const JournalHelper = (function() {
     sortJournal,
     sortSection
   };
-})();
-
-// Attach to global window for pages that include this script
-if (typeof window !== 'undefined') {
-  window.JournalHelper = JournalHelper;
-}
