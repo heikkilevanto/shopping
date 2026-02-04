@@ -81,6 +81,26 @@ window.ShoppingApp = {
     const result = ListOps.sortSection(section); 
     if (result) { Rendering.render(); Storage.scheduleSave(); }
   },
+  sortSectionItems: (section, sortType) => { 
+    ListOps.sortSectionItems(section, sortType); 
+    Rendering.render(); Storage.scheduleSave(); 
+  },
+  sortAllSections: (section, sortType) => { 
+    ListOps.sortAllSections(section, sortType); 
+    Rendering.render(); Storage.scheduleSave(); 
+  },
+  reverseOrder: (section) => { 
+    ListOps.reverseOrder(section); 
+    Rendering.render(); Storage.scheduleSave(); 
+  },
+  reverseAllSections: (section) => { 
+    ListOps.reverseAllSections(section); 
+    Rendering.render(); Storage.scheduleSave(); 
+  },
+  resortJournal: () => { 
+    ListOps.resortJournal(); 
+    Rendering.render(); Storage.scheduleSave(); 
+  },
   toggleSortOrder: () => { ListOps.toggleSortOrder(); Rendering.render(); Storage.scheduleSave(); },
   deleteSection: (section) => { 
     const result = ListOps.deleteSection(section); 

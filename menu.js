@@ -4,7 +4,7 @@
 'use strict';
 
 // Module state
-let menu, secMenu, subMenu;
+let menu, secMenu, subMenu, subSubMenu;
 let lastSectionAnchor = null;
 
 // ================= Helper Functions =================
@@ -105,6 +105,11 @@ function createStyledMenu(){
     subMenu = createStyledMenu();
     applyMenuColors(subMenu, bg);
     document.body.appendChild(subMenu);
+
+    // Third-level submenu (for nested items like Sort within Settings)
+    subSubMenu = createStyledMenu();
+    applyMenuColors(subSubMenu, bg);
+    document.body.appendChild(subSubMenu);
   }
 
   function addMenuItem(menuEl, text, onClick){
@@ -156,13 +161,35 @@ function createStyledMenu(){
       hideMenus();
     });
 
-    // If the current list is a journal, expose "Sort Section" here
-    if (State.getCurrentList() && State.getCurrentList().type === 'journal') {
-      secMenu.appendChild(createSeparator());
-      addMenuItem(secMenu, 'Sort Section', () => {
-        ShoppingApp.sortSection(section);
+    // Sort Section submenu
+    secMenu.appendChild(createSeparator());
+    addTrigger(secMenu, 'Sort Section', (subMenu) => {
+      const currentList = State.getCurrentList();
+      if (currentList && currentList.type === 'journal') {
+        addMenuItem(subMenu, 'Date', () => {
+          ShoppingApp.sortSection(section);
+        });
+      }
+      addMenuItem(subMenu, 'Alphabetic', () => {
+        ShoppingApp.sortSectionItems(section, 'alphabetic');
       });
-    }
+      addMenuItem(subMenu, 'Checked First', () => {
+        ShoppingApp.sortSectionItems(section, 'checked-first');
+      });
+      addMenuItem(subMenu, 'Unchecked First', () => {
+        ShoppingApp.sortSectionItems(section, 'unchecked-first');
+      });
+      addMenuItem(subMenu, 'Subsections First', () => {
+        ShoppingApp.sortSectionItems(section, 'subsections-first');
+      });
+      addMenuItem(subMenu, 'Items First', () => {
+        ShoppingApp.sortSectionItems(section, 'items-first');
+      });
+      subMenu.appendChild(createSeparator());
+      addMenuItem(subMenu, 'Reverse Order', () => {
+        ShoppingApp.reverseOrder(section);
+      });
+    });
 
     // Add Item...
     addMenuItem(secMenu, 'Add Item...', () => {
@@ -190,138 +217,14 @@ function createStyledMenu(){
     menuEl.appendChild(header);
   }
 
-  function buildMenuInternal(){
-    menu.innerHTML='';
-    const bg = currentList?.bgColor || '#ffffff';
-    applyMenuColors(menu, bg);
-
-    // ===== CREATE SECTION =====
-    addMenuHeader(menu, 'Create');
-    
-    addMenuItem(menu, '+ New List', ShoppingApp.createNewList || (()=>{}));
-    
-    addMenuItem(menu, '+ New Journal', () => {
-      const name = window.prompt ? window.prompt('Enter new journal name:') : null;
-      if (name !== null) {
-        if (window.ShoppingApp && typeof ShoppingApp.createNewList === 'function') {
-          ShoppingApp.createNewList(name, 'journal');
-        } else if (window.ShoppingApp && typeof ShoppingApp.createNew === 'function') {
-          ShoppingApp.createNew(name, 'journal');
-        }
-      }
-    });
-
-    // Only show current list actions if there's a current list
-    if (State.getCurrentList()) {
-      menu.appendChild(createSeparator());
-      
-      // ===== CURRENT LIST SECTION =====
-      addMenuHeader(menu, State.getCurrentList().title || State.getCurrentList().name);
-      
-      // Add Item to current list
-      if (window.ShoppingApp && typeof ShoppingApp.addItemToList === 'function') {
-        addMenuItem(menu, '+ Add Item...', () => {
-          ShoppingApp.addItemToList(ShoppingApp.menuButton || menu);
-        });
-      }
-
-      // Journal-specific actions
-      if (currentList.type === 'journal') {
-        addMenuItem(menu, '+ New Entry for Date...', () => {
-          const dateStr = window.prompt ? window.prompt('Enter date (YYYY-MM-DD), empty = today:') : '';
-          if (dateStr !== null) {
-            if (window.ShoppingApp && typeof ShoppingApp.createJournalEntryForDate === 'function') {
-              ShoppingApp.createJournalEntryForDate(dateStr);
-            }
-          }
-        });
-        
-        if (window.ShoppingApp && typeof ShoppingApp.sortJournal === 'function') {
-          addMenuItem(menu, '↕ Sort Journal', () => {
-            ShoppingApp.sortJournal();
-          });
-        }
-        
-        // Toggle sort order for journals
-        if (window.ShoppingApp && typeof ShoppingApp.toggleSortOrder === 'function') {
-          const sortOrder = currentList.sortOrder || 'newest-first';
-          const label = sortOrder === 'newest-first' ? '⬇ Sort: Newest First' : '⬆ Sort: Oldest First';
-          addMenuItem(menu, label, () => {
-            ShoppingApp.toggleSortOrder();
-          });
-        }
-      }
-
-      addMenuItem(menu, '↔ Toggle Journal Mode', () => {
-        if (window.ShoppingApp && typeof ShoppingApp.toggleListType === 'function') {
-          ShoppingApp.toggleListType();
-        }
-      });
-
-      // Color picker
-      createColorPicker(menu, 'Background: ', currentList.bgColor || '#ffffff', (val) => {
-        if (ShoppingApp.changeCurrentBg) ShoppingApp.changeCurrentBg(val);
-      });
-
-      // Global filter
-      createFilterButtons(menu, ['checked','unchecked','none'], currentList.filter || 'all', (f) => {
-        console.log('[Menu] Filter button clicked:', f);
-        currentList.filter = f === 'none' ? '' : f;
-        console.log('[Menu] currentList.filter set to:', currentList.filter);
-        if (window.ShoppingApp) {
-          console.log('[Menu] Calling scheduleSave and render');
-          ShoppingApp.scheduleSave();
-          ShoppingApp.render();
-        } else {
-          console.error('[Menu] ShoppingApp not available!');
-        }
-        hideMenus();
-      });
-
-      menu.appendChild(createSeparator());
-
-      // ===== BULK ACTIONS SECTION =====
-      addMenuHeader(menu, 'Bulk Actions');
-      
-      addMenuItem(menu, '☐ Uncheck All', ShoppingApp.uncheckAll || (()=>{}));
-      addMenuItem(menu, '▼ Expand All', ShoppingApp.expandAll || (()=>{}));
-      addMenuItem(menu, '▶ Collapse All', ShoppingApp.collapseAll || (()=>{}));
-      addMenuItem(menu, '⊗ Clear All Filters', ShoppingApp.clearAllFilters || (()=>{}));
-
-      menu.appendChild(createSeparator());
-
-      // ===== DANGER ZONE =====
-      addMenuItem(menu, '🗑 Delete This List', ShoppingApp.deleteCurrentList || (()=>{}));
-    }
-
-    menu.appendChild(createSeparator());
-
-    // ===== SWITCH TO SECTION =====
-    addMenuHeader(menu, 'Switch to List');
-    const switchLists = (State.getAllLists() || []).filter(lst => !State.getCurrentList() || lst.name !== State.getCurrentList().name);
-    
-    // list entries (exclude current list)
-    switchLists.forEach(lst=>{
-      const a = document.createElement('a');
-      a.textContent = lst.title || lst.name;
-      a.href = `?l=${encodeURIComponent(lst.name)}`;
-      a.style.display = 'block';
-      a.style.padding = '4px 12px';
-      a.style.cursor = 'pointer';
-      if (lst.name === menuCurrentList?.name) {
-        a.style.fontWeight = 'bold';
-      }
-      // Allow natural navigation so the list reloads fully
-      a.onclick = () => hideMenus();
-      menu.appendChild(a);
-    });
-  }
+  // OLD buildMenuInternal removed - see the newer version below
 
   function hideMenus(){
     if (menu) menu.style.display = 'none';
     if (window.ShoppingApp && ShoppingApp.menuButton) ShoppingApp.menuButton.setAttribute('aria-expanded','false');
     if (secMenu) secMenu.style.display = 'none';
     if (subMenu) subMenu.style.display = 'none';
+    if (subSubMenu) subSubMenu.style.display = 'none';
   }
 
   function rebuildOpenMenus(){
@@ -332,6 +235,9 @@ function createStyledMenu(){
     }
     if (subMenu && subMenu.style.display === 'block') {
       subMenu.style.display = 'none';
+    }
+    if (subSubMenu && subSubMenu.style.display === 'block') {
+      subSubMenu.style.display = 'none';
     }
   }
 
@@ -361,12 +267,14 @@ function createStyledMenu(){
     const clickedOutsideMain = menu && !menu.contains(e.target) && e.target !== window.ShoppingApp.menuButton;
     const clickedOutsideSec = secMenu && !secMenu.contains(e.target);
     const clickedOutsideSub = subMenu && !subMenu.contains(e.target);
-    if (clickedOutsideMain && clickedOutsideSec && clickedOutsideSub) hideMenus();
+    const clickedOutsideSubSub = subSubMenu && !subSubMenu.contains(e.target);
+    if (clickedOutsideMain && clickedOutsideSec && clickedOutsideSub && clickedOutsideSubSub) hideMenus();
   }
   function onDocumentKey(e){ if (e.key === 'Escape') hideMenus(); }
 
   // Helper: add a trigger item that opens a submenu anchored to this item
   function addTrigger(menuEl, text, buildFn){
+    console.log('[addTrigger] Creating trigger for:', text);
     const div = document.createElement('div');
     div.textContent = text;
     div.style.padding = '4px 12px';
@@ -374,7 +282,25 @@ function createStyledMenu(){
     div.onmouseover = () => div.style.background = '#eee';
     div.onmouseout = () => div.style.background = '';
     div.onclick = () => {
+      console.log('[addTrigger] Clicked:', text);
       showSubmenuAt(div, buildFn);
+    };
+    menuEl.appendChild(div);
+    return div;
+  }
+
+  // Helper: add a nested trigger (for third-level menus) that uses subSubMenu
+  function addNestedTrigger(menuEl, text, buildFn){
+    console.log('[addNestedTrigger] Creating nested trigger for:', text);
+    const div = document.createElement('div');
+    div.textContent = text;
+    div.style.padding = '4px 12px';
+    div.style.cursor = 'pointer';
+    div.onmouseover = () => div.style.background = '#eee';
+    div.onmouseout = () => div.style.background = '';
+    div.onclick = () => {
+      console.log('[addNestedTrigger] Clicked:', text);
+      showNestedSubmenuAt(div, buildFn);
     };
     menuEl.appendChild(div);
     return div;
@@ -382,15 +308,58 @@ function createStyledMenu(){
 
   // Show generic submenu at anchor element and build its content via buildFn(subMenu)
   function showSubmenuAt(anchor, buildFn){
-    if (!subMenu) return;
+    console.log('[showSubmenuAt] Called');
+    if (!subMenu) {
+      console.error('[showSubmenuAt] subMenu is null!');
+      return;
+    }
     subMenu.innerHTML = '';
     const bg = State.getCurrentList()?.bgColor || '#ffffff';
     applyMenuColors(subMenu, bg);
+    console.log('[showSubmenuAt] Calling buildFn');
     buildFn(subMenu);
+    console.log('[showSubmenuAt] buildFn complete, positioning submenu');
     const rect = anchor.getBoundingClientRect();
     subMenu.style.left = rect.left + 'px';
     subMenu.style.top = (rect.bottom + window.scrollY + 4) + 'px';
+    subMenu.style.zIndex = '1001';
     subMenu.style.display = 'block';
+    // Adjust position if off-screen
+    const subMenuRect = subMenu.getBoundingClientRect();
+    if (subMenuRect.bottom > window.innerHeight) {
+      subMenu.style.top = (rect.top + window.scrollY - subMenuRect.height - 4) + 'px';
+    }
+    if (subMenuRect.right > window.innerWidth) {
+      subMenu.style.left = (window.innerWidth - subMenuRect.width - 4) + 'px';
+    }
+  }
+
+  // Show nested submenu (third level) at anchor element
+  function showNestedSubmenuAt(anchor, buildFn){
+    console.log('[showNestedSubmenuAt] Called');
+    if (!subSubMenu) {
+      console.error('[showNestedSubmenuAt] subSubMenu is null!');
+      return;
+    }
+    subSubMenu.innerHTML = '';
+    const bg = State.getCurrentList()?.bgColor || '#ffffff';
+    applyMenuColors(subSubMenu, bg);
+    console.log('[showNestedSubmenuAt] Calling buildFn');
+    buildFn(subSubMenu);
+    console.log('[showNestedSubmenuAt] buildFn complete, positioning submenu');
+    const rect = anchor.getBoundingClientRect();
+    subSubMenu.style.left = (rect.right + 4) + 'px';
+    subSubMenu.style.top = rect.top + window.scrollY + 'px';
+    subSubMenu.style.zIndex = '1002';
+    subSubMenu.style.display = 'block';
+    // Adjust position if off-screen
+    const subSubMenuRect = subSubMenu.getBoundingClientRect();
+    if (subSubMenuRect.bottom > window.innerHeight) {
+      subSubMenu.style.top = (window.innerHeight - subSubMenuRect.height - 4 + window.scrollY) + 'px';
+    }
+    if (subSubMenuRect.right > window.innerWidth) {
+      subSubMenu.style.left = (rect.left - subSubMenuRect.width - 4) + 'px';
+    }
   }
 
   function buildMenuInternal(){
@@ -462,20 +431,40 @@ function createStyledMenu(){
           ShoppingApp.toggleListType();
         }
       });
-      // Sort Journal (only for journal type lists)
-      if (State.getCurrentList() && State.getCurrentList().type === 'journal' && window.ShoppingApp && typeof ShoppingApp.sortJournal === 'function') {
-        addMenuItem(sm, 'Sort Journal', () => {
-          ShoppingApp.sortJournal();
-        });
-        
-        // Toggle sort order
-        if (typeof ShoppingApp.toggleSortOrder === 'function') {
-          const sortOrder = State.getCurrentList().sortOrder || 'newest-first';
-          const label = sortOrder === 'newest-first' ? 'Sort: Newest First ⬇' : 'Sort: Oldest First ⬆';
-          addMenuItem(sm, label, () => {
-            ShoppingApp.toggleSortOrder();
+      // Sort submenu
+      if (State.getCurrentList()) {
+        sm.appendChild(createSeparator());
+        addNestedTrigger(sm, 'Sort', (sortSubMenu) => {
+          const currentList = State.getCurrentList();
+          
+          // Journal-specific resort option
+          if (currentList.type === 'journal') {
+            addMenuItem(sortSubMenu, 'Resort Journal', () => {
+              ShoppingApp.resortJournal();
+            });
+            sortSubMenu.appendChild(createSeparator());
+          }
+          
+          addMenuItem(sortSubMenu, 'Alphabetic', () => {
+            ShoppingApp.sortAllSections(currentList, 'alphabetic');
           });
-        }
+          addMenuItem(sortSubMenu, 'Checked First', () => {
+            ShoppingApp.sortAllSections(currentList, 'checked-first');
+          });
+          addMenuItem(sortSubMenu, 'Unchecked First', () => {
+            ShoppingApp.sortAllSections(currentList, 'unchecked-first');
+          });
+          addMenuItem(sortSubMenu, 'Subsections First', () => {
+            ShoppingApp.sortAllSections(currentList, 'subsections-first');
+          });
+          addMenuItem(sortSubMenu, 'Items First', () => {
+            ShoppingApp.sortAllSections(currentList, 'items-first');
+          });
+          sortSubMenu.appendChild(createSeparator());
+          addMenuItem(sortSubMenu, 'Reverse Order', () => {
+            ShoppingApp.reverseAllSections(currentList);
+          });
+        });
       }
       // Uncheck all moved to Settings
       addMenuItem(sm, 'Uncheck All', ShoppingApp.uncheckAll || (()=>{}));

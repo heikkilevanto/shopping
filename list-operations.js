@@ -144,6 +144,112 @@ function sortJournal() {
   // Note: render() and scheduleSave() are called by the caller
 }
 
+// Reorganize journal: move day sections into proper month sections
+function resortJournal() {
+  const currentList = State.getCurrentList();
+  if (!currentList || !Array.isArray(currentList.items) || currentList.type !== 'journal') return;
+  
+  const sortOrder = currentList.sortOrder || 'newest-first';
+  
+  // Collect all day sections that are at the root level or misplaced
+  const daySections = [];
+  const monthSections = new Map(); // key: monthPrefix (e.g., "2026-02"), value: section object
+  
+  // First pass: identify all month sections and collect misplaced day sections
+  for (let i = currentList.items.length - 1; i >= 0; i--) {
+    const item = currentList.items[i];
+    if (item && item.type === 'section') {
+      const dayPrefix = JournalHelper.getTitlePrefix(item.title, 10);
+      const monthPrefix = JournalHelper.getTitlePrefix(item.title, 7);
+      
+      if (dayPrefix) {
+        // This is a day section - remove it from root and save it
+        daySections.push(currentList.items.splice(i, 1)[0]);
+      } else if (monthPrefix && !dayPrefix) {
+        // This is a month section - remember it
+        monthSections.set(monthPrefix, item);
+      }
+    }
+  }
+  
+  // Second pass: also collect day sections from within other day sections (misplaced)
+  currentList.items.forEach(item => {
+    if (item && item.type === 'section' && Array.isArray(item.items)) {
+      const monthPrefix = JournalHelper.getTitlePrefix(item.title, 7);
+      if (monthPrefix && !JournalHelper.getTitlePrefix(item.title, 10)) {
+        // This is a month section - check for misplaced day sections inside
+        for (let i = item.items.length - 1; i >= 0; i--) {
+          const child = item.items[i];
+          if (child && child.type === 'section') {
+            const childDayPrefix = JournalHelper.getTitlePrefix(child.title, 10);
+            if (childDayPrefix) {
+              // Check if this day belongs to a different month
+              const childMonthPrefix = childDayPrefix.substring(0, 7);
+              if (childMonthPrefix !== monthPrefix) {
+                // Misplaced - move it
+                daySections.push(item.items.splice(i, 1)[0]);
+              }
+            }
+          }
+        }
+      }
+    }
+  });
+  
+  // Process each day section and place it in the correct month
+  daySections.forEach(daySection => {
+    const dayPrefix = JournalHelper.getTitlePrefix(daySection.title, 10);
+    if (!dayPrefix) return;
+    
+    const monthPrefix = dayPrefix.substring(0, 7); // e.g., "2026-02"
+    
+    // Find or create the month section
+    let monthSection = monthSections.get(monthPrefix);
+    if (!monthSection) {
+      // Create new month section
+      const year = parseInt(monthPrefix.substring(0, 4));
+      const month = parseInt(monthPrefix.substring(5, 7));
+      const date = new Date(year, month - 1, 1);
+      const prefixes = JournalHelper.formatPrefixes(date);
+      monthSection = { type: 'section', title: prefixes.monthTitle, items: [] };
+      monthSections.set(monthPrefix, monthSection);
+      
+      // Insert the month section in the correct position
+      JournalHelper.reorderSectionsInPlace([...currentList.items, monthSection], 7, sortOrder);
+      // Find where it ended up and insert it there
+      let inserted = false;
+      for (let i = 0; i < currentList.items.length; i++) {
+        const item = currentList.items[i];
+        if (item && item.type === 'section') {
+          const itemMonthPrefix = JournalHelper.getTitlePrefix(item.title, 7);
+          if (itemMonthPrefix) {
+            if ((sortOrder === 'newest-first' && itemMonthPrefix < monthPrefix) ||
+                (sortOrder === 'oldest-first' && itemMonthPrefix > monthPrefix)) {
+              currentList.items.splice(i, 0, monthSection);
+              inserted = true;
+              break;
+            }
+          }
+        }
+      }
+      if (!inserted) {
+        currentList.items.push(monthSection);
+      }
+    }
+    
+    // Add the day section to the month section
+    if (!Array.isArray(monthSection.items)) {
+      monthSection.items = [];
+    }
+    monthSection.items.push(daySection);
+  });
+  
+  // Finally, sort everything
+  JournalHelper.sortJournal(currentList);
+  
+  // Note: render() and scheduleSave() are called by the caller
+}
+
 // Sort only the immediate subsections of the provided section
 function sortSection(section) {
   if (!section || !Array.isArray(section.items)) return;
@@ -155,6 +261,81 @@ function sortSection(section) {
   }
   // Note: render() and scheduleSave() are called by the caller
   return true;
+}
+
+// Sort section items by the given sort type
+function sortSectionItems(section, sortType) {
+  if (!section || !Array.isArray(section.items)) return;
+  
+  section.items.sort((a, b) => {
+    switch (sortType) {
+      case 'alphabetic':
+        const aText = a.title || a.text || '';
+        const bText = b.title || b.text || '';
+        return aText.localeCompare(bText);
+      case 'reverse-alpha':
+        const aTextRev = a.title || a.text || '';
+        const bTextRev = b.title || b.text || '';
+        return bTextRev.localeCompare(aTextRev);
+      case 'checked-first':
+        if (a.checked === b.checked) return 0;
+        return a.checked ? -1 : 1;
+      case 'unchecked-first':
+        if (a.checked === b.checked) return 0;
+        return a.checked ? 1 : -1;
+      case 'subsections-first':
+        if (a.type === b.type) return 0;
+        return a.type === 'section' ? -1 : 1;
+      case 'items-first':
+        if (a.type === b.type) return 0;
+        return a.type === 'item' ? -1 : 1;
+      default:
+        return 0;
+    }
+  });
+  
+  // Note: render() and scheduleSave() are called by the caller
+}
+
+// Recursively sort all sections and subsections
+function sortAllSections(section, sortType) {
+  if (!section || !Array.isArray(section.items)) return;
+  
+  // Sort this level
+  sortSectionItems(section, sortType);
+  
+  // Recursively sort all child sections
+  section.items.forEach(item => {
+    if (item.type === 'section' && item.items) {
+      sortAllSections(item, sortType);
+    }
+  });
+  
+  // Note: render() and scheduleSave() are called by the caller
+}
+
+// Reverse the order of items in a section (non-recursive)
+function reverseOrder(section) {
+  if (!section || !Array.isArray(section.items)) return;
+  section.items.reverse();
+  // Note: render() and scheduleSave() are called by the caller
+}
+
+// Recursively reverse order of all sections and subsections
+function reverseAllSections(section) {
+  if (!section || !Array.isArray(section.items)) return;
+  
+  // Reverse this level
+  section.items.reverse();
+  
+  // Recursively reverse all child sections
+  section.items.forEach(item => {
+    if (item.type === 'section' && item.items) {
+      reverseAllSections(item);
+    }
+  });
+  
+  // Note: render() and scheduleSave() are called by the caller
 }
 
 // Toggle journal sort order between newest-first and oldest-first
@@ -301,7 +482,12 @@ window.ListOps = {
   toggleListType,
   createJournalEntryForDate,
   sortJournal,
+  resortJournal,
   sortSection,
+  sortSectionItems,
+  sortAllSections,
+  reverseOrder,
+  reverseAllSections,
   toggleSortOrder,
   deleteSection,
   expandAll,
