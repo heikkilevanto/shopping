@@ -8,7 +8,8 @@
 - **Avoid heavy OOP** - Prefer functions over classes; simple objects over inheritance
 - **No IIFEs** - No wrapping code in `(function(){...})()` patterns
 - **"use strict"** - Always include at the top of each file
-- **Assume modules are loaded** - Check all required modules upfront in init; no defensive `if (window.X)` checks in runtime code
+- **Assume modules are loaded** - Check all required modules upfront in init; no defensive 
+  `if (window.X)` checks in runtime code
 
 ## Code Organization
 
@@ -47,7 +48,7 @@
 - Avoid stating the obvious
 - Explain *why* when the reason isn't clear
 - A comment at the closing brace of a top level function saying what ends here: '} // render'
-  but not for short functions that can be seen in a glance.
+  but not for functions under 10 lines
 
 ## What to Avoid
 

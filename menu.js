@@ -490,7 +490,7 @@ function createStyledMenu(){
     menu.appendChild(createSeparator());
 
     // Recent lists (API decides count) and All Lists… (exclude current list)
-    const recent = (State.getAllLists() || []).filter(lst => !State.getCurrentList() || lst.name !== State.getCurrentList().name).slice(0, 5);
+    const recent = (State.getAllLists() || []).filter(lst => !State.getCurrentList() || lst.name !== State.getCurrentList().name).slice(0, 10);
     recent.forEach(lst=>{
       const a = document.createElement('a');
       const prefix = lst.name === State.getCurrentList()?.name ? '• ' : '';

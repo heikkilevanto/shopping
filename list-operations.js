@@ -8,7 +8,7 @@
 
 function getRecentListsForMenu() {
   const allLists = State.getAllLists();
-  return allLists.slice(0, 5);
+  return allLists.slice(0, 10);
 }
 
 function hideAppMenus() {
