@@ -27,6 +27,16 @@ function uncheckAll() {
   hideAppMenus();
 }
 
+function uncheckAllSection(section) {
+  if (!section || !section.items) return;
+  Util.traverseSections(section.items, null, it => {
+    if (it.type === 'item') {
+      it.checked = false;
+    }
+  });
+  hideAppMenus();
+}
+
 // Go back to the index page
 function indexLink() {
   window.location.href = window.location.pathname;
@@ -476,6 +486,7 @@ window.ListOps = {
   getRecentListsForMenu,
   hideAppMenus,
   uncheckAll,
+  uncheckAllSection,
   indexLink,
   createNewList,
   deleteCurrentList,

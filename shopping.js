@@ -65,6 +65,7 @@ window.ShoppingApp = {
   createNewList: ListOps.createNewList,
   deleteCurrentList: ListOps.deleteCurrentList,
   uncheckAll: () => { ListOps.uncheckAll(); Rendering.render(); Storage.scheduleSave(); },
+  uncheckAllSection: (section) => { ListOps.uncheckAllSection(section); Rendering.render(); Storage.scheduleSave(); },
   expandAll: () => { ListOps.expandAll(); Rendering.render(); Storage.scheduleSave(); },
   collapseAll: () => { ListOps.collapseAll(); Rendering.render(); Storage.scheduleSave(); },
   clearAllFilters: () => { ListOps.clearAllFilters(); Rendering.render(); Storage.scheduleSave(); },

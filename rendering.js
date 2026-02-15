@@ -233,12 +233,14 @@ function renderSection(container,section,parentSections,parentEffectiveFilter){
       toggleBtn.onclick = e => {
         e.stopPropagation();
         if (e.detail === 2) {
+          // Double-click toggles collapse/expand
           section.collapsed = !section.collapsed;
           State.setFocusItem(section);
           render();
           Storage.scheduleSave();
           ListOps.hideAppMenus();
         } else {
+          // Single-click shows menu
           Menu.showSectionMenu(section, toggleBtn);
         }
       };

@@ -12,8 +12,8 @@ body.drag-in-progress {
 
 /* ===== Drag & Touch Handling ===== */
 /* Prevent browser touch gestures on drag handles to enable custom drag behavior */
+/* Note: section-toggle touch-action is set dynamically in rendering.js based on collapsed state */
 input[type="checkbox"],
-.section-toggle,
 .drag-handle {
   touch-action: none;
 }
