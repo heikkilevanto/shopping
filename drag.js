@@ -169,17 +169,12 @@ function createDropMarker() {
      * registerDragHandle(handleEl, meta)
      * handleEl: DOM element to start drag from (checkbox for items, toggleBtn for sections)
      * meta: { type:'item'|'section', itemOrSection, parentArray, domNode }
-     *
-     * NOTE: Touch dragging has been removed. If pointerType === 'touch' we ignore pointerdown.
      */
     registerDragHandle(handleEl, meta) {
       if (!handleEl) return;
       handleEl._dragMeta = meta;
 
       const onPointerDown = (ev) => {
-        // Do not initiate touch-based drags here: skip pointerdown if pointer is touch.
-        if (ev.pointerType === 'touch') return;
-
         // For sections: only allow starting a drag when the section is collapsed.
         if (meta && meta.type === 'section' && meta.itemOrSection && !meta.itemOrSection.collapsed) {
           return;
@@ -208,21 +203,23 @@ function createDropMarker() {
 
         try { handleEl.setPointerCapture(ev.pointerId); } catch (e) {}
 
-        // For mouse/pen: start drag after a small move threshold to avoid interfering with clicks.
-        const moveThreshold = 6;
+        // Use a larger threshold for touch to avoid accidental drags, smaller for mouse/pen.
+        const moveThreshold = ev.pointerType === 'touch' ? 10 : 6;
         const onMove = (moveEv) => {
+          // Prevent default on move to block scrolling/refresh once we're tracking a potential drag
+          moveEv.preventDefault();
           const dx = moveEv.clientX - state.startPos.x;
           const dy = moveEv.clientY - state.startPos.y;
           if (Math.hypot(dx, dy) > moveThreshold) {
-            window.removeEventListener('pointermove', onMove, true);
+            window.removeEventListener('pointermove', onMove, { capture: true });
             if (!state.dragActive) startDrag(moveEv);
           }
         };
-        window.addEventListener('pointermove', onMove, true);
+        window.addEventListener('pointermove', onMove, { capture: true, passive: false });
 
         // If pointerup happens before threshold, cleanup the listener and release pointer capture.
         const onPointerUpBeforeStart = () => {
-          window.removeEventListener('pointermove', onMove, true);
+          window.removeEventListener('pointermove', onMove, { capture: true });
           try { handleEl.releasePointerCapture(ev.pointerId); } catch (e) {}
         };
         handleEl.addEventListener('pointerup', onPointerUpBeforeStart, { once: true });
@@ -230,6 +227,9 @@ function createDropMarker() {
         function startDrag(startEvent) {
           if (state.dragActive) return;
           state.dragActive = true;
+
+          // Prevent scrolling and pull-to-refresh during drag
+          document.body.classList.add('drag-in-progress');
 
           // Setup click suppression so the handle's click doesn't fire after drag
           state.suppressClickTarget = handleEl;
@@ -249,12 +249,14 @@ function createDropMarker() {
           if (state.draggedMeta.domNode) {
             state.draggedMeta.domNode.classList.add('dragging');
           }
-          window.addEventListener('pointermove', onPointerMove, true);
-          window.addEventListener('pointerup', onPointerUp, true);
+          window.addEventListener('pointermove', onPointerMove, { capture: true, passive: false });
+          window.addEventListener('pointerup', onPointerUp, { capture: true, passive: false });
         }
 
         function onPointerMove(ev) {
           if (!state.dragActive) return;
+          // Prevent default to block scrolling/refresh during drag
+          ev.preventDefault();
           moveGhost(ev.clientX, ev.clientY);
           computeAndShowTarget(ev.clientX, ev.clientY);
           handleAutoScroll(ev.clientY);
@@ -263,24 +265,25 @@ function createDropMarker() {
         function onPointerUp(ev) {
           if (!state.dragActive) {
             // pointerup before actual drag started: cleanup
-            window.removeEventListener('pointermove', onPointerMove, true);
-            window.removeEventListener('pointerup', onPointerUp, true);
+            window.removeEventListener('pointermove', onPointerMove, { capture: true });
+            window.removeEventListener('pointerup', onPointerUp, { capture: true });
             removeClickSuppressor();
             try { handleEl.releasePointerCapture(ev.pointerId); } catch (e) {}
             return;
           }
+          ev.preventDefault();
           if (state.targetParentArray && typeof state.targetIndex === 'number') {
             dragApi.dropHere(state.draggedMeta, state.targetParentArray, state.targetIndex);
           } else {
             dragApi.cancelDrag();
           }
           try { handleEl.releasePointerCapture(ev.pointerId); } catch (e) {}
-          window.removeEventListener('pointermove', onPointerMove, true);
-          window.removeEventListener('pointerup', onPointerUp, true);
+          window.removeEventListener('pointermove', onPointerMove, { capture: true });
+          window.removeEventListener('pointerup', onPointerUp, { capture: true });
         }
       };
 
-      // pointerdown for mouse/pen - passive:true is fine since we won't call preventDefault.
+      // Passive listener for pointerdown is fine - we prevent default on move events instead
       handleEl.addEventListener('pointerdown', onPointerDown, { passive: true });
     },
 
@@ -377,6 +380,9 @@ function createDropMarker() {
 
     // visual cleanup only
     _cleanupVisuals() {
+      // Re-enable scrolling and pull-to-refresh
+      document.body.classList.remove('drag-in-progress');
+      
       if (state.ghostEl && state.ghostEl.parentNode) state.ghostEl.parentNode.removeChild(state.ghostEl);
       if (state.dropMarker) state.dropMarker.classList.add('hidden');
       if (state.draggedMeta && state.draggedMeta.domNode) state.draggedMeta.domNode.classList.remove('dragging');

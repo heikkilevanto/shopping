@@ -4,6 +4,20 @@ body {
   padding: 1em;
 }
 
+/* Prevent pull-to-refresh and scrolling during drag operations */
+body.drag-in-progress {
+  touch-action: none;
+  overflow: hidden;
+}
+
+/* ===== Drag & Touch Handling ===== */
+/* Prevent browser touch gestures on drag handles to enable custom drag behavior */
+input[type="checkbox"],
+.section-toggle,
+.drag-handle {
+  touch-action: none;
+}
+
 /* ===== Layout & Spacing ===== */
 #top-menu {
   margin-bottom: 1em;
