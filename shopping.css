@@ -283,6 +283,12 @@ input[type="checkbox"],
   cursor: grab;
   margin-right: 0.3em;
   user-select: none;
+  /* Larger touch target for mobile */
+  display: inline-block;
+  min-width: 1.5em;
+  min-height: 1.5em;
+  line-height: 1.5em;
+  text-align: center;
 }
 
 .drag-handle.dragging {

@@ -13,6 +13,7 @@ let state = {
   targetParentArray: null,
   targetIndex: null,
   autoScrollTimer: null,
+  safetyTimer: null,  // timeout to force-cancel stuck drags
   // click suppression state
   suppressClickTarget: null,
   clickSuppressor: null,
@@ -51,6 +52,21 @@ function createDropMarker() {
     init() {
       state.dropMarker = createDropMarker();
       console.debug('drag.init', { container: ShoppingApp.container });
+      
+      // Global safety: cancel drag if pointer leaves window or visibility changes
+      document.addEventListener('visibilitychange', () => {
+        if (document.hidden && state.dragActive) {
+          console.debug('Page hidden during drag, canceling');
+          this.cancelDrag();
+        }
+      });
+      
+      window.addEventListener('blur', () => {
+        if (state.dragActive) {
+          console.debug('Window lost focus during drag, canceling');
+          this.cancelDrag();
+        }
+      });
     },
 
     registerLine(lineEl) {
@@ -228,6 +244,15 @@ function createDropMarker() {
           if (state.dragActive) return;
           state.dragActive = true;
 
+          // Haptic feedback on mobile devices (try both methods)
+          if ('vibrate' in navigator) {
+            try {
+              navigator.vibrate(50);
+            } catch (e) {
+              console.debug('vibrate failed', e);
+            }
+          }
+
           // Prevent scrolling and pull-to-refresh during drag
           document.body.classList.add('drag-in-progress');
 
@@ -245,12 +270,27 @@ function createDropMarker() {
           });
 
           createGhost(state.draggedMeta.domNode || handleEl, startEvent);
-          if (state.dropMarker) state.dropMarker.classList.remove('hidden');
+          if (state.dropMarker) {
+            state.dropMarker.classList.remove('hidden');
+            // Force initial visibility with a default safe position
+            state.dropMarker.style.display = 'block';
+            console.debug('drop marker unhidden and shown');
+          }
           if (state.draggedMeta.domNode) {
             state.draggedMeta.domNode.classList.add('dragging');
           }
+          // Compute initial drop target position
+          computeAndShowTarget(startEvent.clientX, startEvent.clientY);
           window.addEventListener('pointermove', onPointerMove, { capture: true, passive: false });
           window.addEventListener('pointerup', onPointerUp, { capture: true, passive: false });
+          
+          // Safety timeout: auto-cancel drag after 30 seconds to prevent stuck state
+          state.safetyTimer = setTimeout(() => {
+            if (state.dragActive) {
+              console.warn('Drag safety timeout: force canceling stuck drag');
+              dragApi.cancelDrag();
+            }
+          }, 30000);
         }
 
         function onPointerMove(ev) {
@@ -272,9 +312,21 @@ function createDropMarker() {
             return;
           }
           ev.preventDefault();
+          
+          // Recompute target at the final drop position to ensure accuracy on mobile
+          computeAndShowTarget(ev.clientX, ev.clientY);
+          
           if (state.targetParentArray && typeof state.targetIndex === 'number') {
+            console.debug('pointerup: dropping at valid target', { 
+              targetArray: describeArray(state.targetParentArray), 
+              targetIndex: state.targetIndex 
+            });
             dragApi.dropHere(state.draggedMeta, state.targetParentArray, state.targetIndex);
           } else {
+            console.debug('pointerup: no valid target, canceling drag', {
+              hadTargetArray: !!state.targetParentArray,
+              hadTargetIndex: typeof state.targetIndex === 'number'
+            });
             dragApi.cancelDrag();
           }
           try { handleEl.releasePointerCapture(ev.pointerId); } catch (e) {}
@@ -378,15 +430,32 @@ function createDropMarker() {
       state.justDropped = false;
     },
 
+    // Force cancel any active drag (can be called externally)
+    forceCancelIfActive() {
+      if (state.dragActive) {
+        console.debug('forceCancelIfActive: canceling stuck drag');
+        this.cancelDrag();
+      }
+    },
+
+    // Check if drag is currently active
+    isDragActive() {
+      return state.dragActive;
+    },
+
     // visual cleanup only
     _cleanupVisuals() {
       // Re-enable scrolling and pull-to-refresh
       document.body.classList.remove('drag-in-progress');
       
       if (state.ghostEl && state.ghostEl.parentNode) state.ghostEl.parentNode.removeChild(state.ghostEl);
-      if (state.dropMarker) state.dropMarker.classList.add('hidden');
+      if (state.dropMarker) {
+        state.dropMarker.classList.add('hidden');
+        state.dropMarker.style.display = 'none';
+      }
       if (state.draggedMeta && state.draggedMeta.domNode) state.draggedMeta.domNode.classList.remove('dragging');
       if (state.autoScrollTimer) { clearInterval(state.autoScrollTimer); state.autoScrollTimer = null; }
+      if (state.safetyTimer) { clearTimeout(state.safetyTimer); state.safetyTimer = null; }
 
       state.dragActive = false;
       state.pointerId = null;
@@ -416,19 +485,56 @@ function createDropMarker() {
 
   function computeAndShowTarget(clientX, clientY) {
     if (!state.dropMarker) return;
+    
+    // Temporarily hide ghost to ensure elementFromPoint works on touch devices
+    const ghostWasVisible = state.ghostEl && state.ghostEl.style.display !== 'none';
+    if (ghostWasVisible) {
+      state.ghostEl.style.display = 'none';
+    }
+    
     const el = document.elementFromPoint(clientX, clientY);
-    if (!el) return;
+    
+    // Restore ghost visibility
+    if (ghostWasVisible) {
+      state.ghostEl.style.display = 'block';
+    }
+    
+    if (!el) {
+      console.debug('computeAndShowTarget: no element found at point');
+      // Clear target when nothing is found
+      state.dropMarker.style.display = 'none';
+      state.targetParentArray = null;
+      state.targetIndex = null;
+      return;
+    }
     const lineEl = el.closest ? el.closest('.line, .section, .top-drop-zone, .section-footer-drop-zone') : null;
     if (!lineEl) {
+      // Only default to container end if we're actually over the container
       const container = window.ShoppingApp.container;
+      if (!container) {
+        state.dropMarker.style.display = 'none';
+        state.targetParentArray = null;
+        state.targetIndex = null;
+        return;
+      }
       const rect = container.getBoundingClientRect();
+      // Check if pointer is actually within container bounds
+      if (clientX < rect.left || clientX > rect.right || clientY < rect.top || clientY > rect.bottom) {
+        console.debug('computeAndShowTarget: pointer outside container, clearing target');
+        state.dropMarker.style.display = 'none';
+        state.targetParentArray = null;
+        state.targetIndex = null;
+        return;
+      }
+      // Pointer is over container - show drop at end
       state.dropMarker.style.left = rect.left + 'px';
       state.dropMarker.style.width = rect.width + 'px';
       state.dropMarker.style.top = (rect.bottom - 2 + window.scrollY) + 'px';
+      state.dropMarker.style.display = 'block';
       state.dropMarker.classList.remove('hidden');
       state.targetParentArray = ShoppingApp.getCurrentList().items;
       state.targetIndex = state.targetParentArray.length;
-      console.debug('computeAndShowTarget: over container (end)', { targetParentArray: describeArray(state.targetParentArray), targetIndex: state.targetIndex });
+      console.debug('computeAndShowTarget: over container (end)', { targetParentArray: describeArray(state.targetParentArray), targetIndex: state.targetIndex, markerTop: state.dropMarker.style.top });
       return;
     }
 
@@ -445,6 +551,7 @@ function createDropMarker() {
         state.dropMarker.style.left = rect.left + 'px';
         state.dropMarker.style.width = rect.width + 'px';
         state.dropMarker.style.top = topPos + 'px';
+        state.dropMarker.style.display = 'block';
         state.dropMarker.classList.remove('hidden');
         console.debug('computeAndShowTarget: on .line', { lineItem: describeNode(lineEl._item), parentArray: describeArray(parentArray), targetIndex: insertIndex });
         return;
@@ -463,6 +570,7 @@ function createDropMarker() {
         state.dropMarker.style.left = rect.left + 'px';
         state.dropMarker.style.width = rect.width + 'px';
         state.dropMarker.style.top = markerTop + 'px';
+        state.dropMarker.style.display = 'block';
         state.dropMarker.classList.remove('hidden');
         console.debug('computeAndShowTarget: on .section', { section: describeNode(section), isNearTop, targetParentArray: describeArray(state.targetParentArray), targetIndex: state.targetIndex });
         return;
@@ -476,6 +584,7 @@ function createDropMarker() {
       state.dropMarker.style.left = rect.left + 'px';
       state.dropMarker.style.width = rect.width + 'px';
       state.dropMarker.style.top = (rect.top + window.scrollY) + 'px';
+      state.dropMarker.style.display = 'block';
       state.dropMarker.classList.remove('hidden');
       console.debug('computeAndShowTarget: on .top-drop-zone', { targetParentArray: describeArray(state.targetParentArray), targetIndex: state.targetIndex });
       return;
@@ -489,6 +598,7 @@ function createDropMarker() {
       state.dropMarker.style.left = rect.left + 'px';
       state.dropMarker.style.width = rect.width + 'px';
       state.dropMarker.style.top = (rect.bottom + window.scrollY) + 'px';
+      state.dropMarker.style.display = 'block';
       state.dropMarker.classList.remove('hidden');
       console.debug('computeAndShowTarget: on .section-footer-drop-zone', { section: describeNode(lineEl._section), targetParentArray: describeArray(state.targetParentArray), targetIndex: state.targetIndex });
       return;

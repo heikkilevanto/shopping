@@ -26,6 +26,12 @@ titleContainer.appendChild(menuButton);
 const listName = document.createElement('span');
 listName.id = 'list-name';
 listName.contentEditable = true;
+listName.onfocus = () => {
+  // Cancel any active drag when starting to edit
+  if (drag.isDragActive && drag.isDragActive()) {
+    drag.forceCancelIfActive();
+  }
+};
 listName.onkeydown = e => {
   if (e.key === 'Enter') {
     e.preventDefault();
@@ -115,6 +121,13 @@ function renderItem(container,item,parentItems,parentSection){
   span.textContent=item.text;
   span.contentEditable=true;
   span._item=item;
+
+  // Cancel any active drag when starting to edit text
+  span.onfocus = () => {
+    if (drag.isDragActive && drag.isDragActive()) {
+      drag.forceCancelIfActive();
+    }
+  };
 
   span.onkeydown=e=>{
     if(e.key==='Enter'){
@@ -238,6 +251,12 @@ function renderSection(container,section,parentSections,parentEffectiveFilter){
   title.textContent=section.title;
   title.contentEditable=true;
   title._section=section;
+  title.onfocus = () => {
+    // Cancel any active drag when starting to edit section title
+    if (drag.isDragActive && drag.isDragActive()) {
+      drag.forceCancelIfActive();
+    }
+  };
   title.onkeydown = e => {
     if (e.key !== 'Enter') return;
     e.preventDefault();
