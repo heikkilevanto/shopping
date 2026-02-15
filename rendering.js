@@ -284,6 +284,12 @@ function renderSection(container,section,parentSections,parentEffectiveFilter){
   const childFilter = section.filter && section.filter !== '' ? section.filter : parentEffectiveFilter;
   renderItems(body, section.items, section.items, childFilter, section);
 
+  // Add section footer drop zone after the section
+  const footerDropZone = document.createElement('div');
+  footerDropZone.className = 'section-footer-drop-zone';
+  container.appendChild(footerDropZone);
+  drag.registerSectionFooter(footerDropZone, section, parentSections);
+
   // Register section header for drop behavior and mark header with references for drag module
   // attach references for drag computations
   header._section = section;
@@ -331,6 +337,12 @@ function render(target){
     contentDiv.id = 'list-content';
     target.appendChild(contentDiv);
     renderItems(contentDiv, currentList.items, currentList.items, currentList.filter || 'all');
+
+    // Add top drop zone at the top
+    const topDropZone = document.createElement('div');
+    topDropZone.className = 'top-drop-zone';
+    contentDiv.insertBefore(topDropZone, contentDiv.firstChild);
+    drag.registerTopDropZone(topDropZone, currentList.items);
   } else {
     target.style.backgroundColor = currentList.bgColor || '#ffffff';
     target.style.color = Util.getContrastColor(currentList.bgColor || '#ffffff');
@@ -369,6 +381,7 @@ function render(target){
 // ==================== Index page =========================
 function renderIndex() {
   appContainer.innerHTML = '<h1>' + currentUser + "'s lists</h1>";
+  document.title = currentUser + "'s lists";
   // Add the + New button
   const newBtn = document.createElement('button');
   newBtn.textContent = '+ New';

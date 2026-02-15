@@ -8,7 +8,7 @@
 - **Avoid heavy OOP** - Prefer functions over classes; simple objects over inheritance
 - **No IIFEs** - No wrapping code in `(function(){...})()` patterns
 - **"use strict"** - Always include at the top of each file
-- **Assume modules are loaded** - Check all required modules upfront in init; no defensive 
+- **Assume modules are loaded by index.cgi** - Check all required modules upfront in init; no defensive 
   `if (window.X)` checks in runtime code
 
 ## Code Organization
@@ -58,6 +58,7 @@
 - Module bundlers (code should run directly in browser)
 - IIFE wrappers: `(function(){ ... })()`
 - Over-abstraction
+- The js here is only going to run in the browser. Do not use node -c for syntax checks, it is not installed.
 
 ## Project-Specific Patterns
 

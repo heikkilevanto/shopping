@@ -56,6 +56,7 @@ function createDropMarker() {
     registerLine(lineEl) {
       let inlineLine = null;
       lineEl.addEventListener('mouseenter', () => {
+        if (!state.dragActive) return;
         if (!inlineLine) {
           inlineLine = document.createElement('div');
           inlineLine.className = 'inline-drop-line';
@@ -85,6 +86,7 @@ function createDropMarker() {
     registerSectionHeader(headerEl) {
       let inlineLine = null;
       headerEl.addEventListener('mouseenter', () => {
+        if (!state.dragActive) return;
         if (!inlineLine) {
           inlineLine = document.createElement('div');
           inlineLine.className = 'inline-drop-line';
@@ -103,6 +105,60 @@ function createDropMarker() {
         console.debug('pointerup on section header while dragging', { headerSection: describeNode(section), headerParentSections: describeArray(headerEl._parentSections) });
         if (section && Array.isArray(section.items)) {
           dragApi.dropHere(state.draggedMeta, section.items, 0);
+        } else {
+          dragApi.cancelDrag();
+        }
+      });
+    },
+
+    registerTopDropZone(zoneEl, mainItemsArray) {
+      zoneEl._mainItemsArray = mainItemsArray;
+      let inlineLine = null;
+      zoneEl.addEventListener('mouseenter', () => {
+        if (!state.dragActive) return;
+        if (!inlineLine) {
+          inlineLine = document.createElement('div');
+          inlineLine.className = 'inline-drop-line';
+          zoneEl.appendChild(inlineLine);
+        }
+      });
+      zoneEl.addEventListener('mouseleave', () => {
+        if (inlineLine && inlineLine.parentNode === zoneEl) zoneEl.removeChild(inlineLine);
+        inlineLine = null;
+      });
+
+      zoneEl.addEventListener('pointerup', (ev) => {
+        if (!state.dragActive) return;
+        ev.preventDefault();
+        console.debug('pointerup on top drop zone while dragging', { mainItemsArray: describeArray(zoneEl._mainItemsArray) });
+        dragApi.dropHere(state.draggedMeta, zoneEl._mainItemsArray, 0);
+      });
+    },
+
+    registerSectionFooter(zoneEl, section, parentSections) {
+      zoneEl._section = section;
+      zoneEl._parentSections = parentSections;
+      let inlineLine = null;
+      zoneEl.addEventListener('mouseenter', () => {
+        if (!state.dragActive) return;
+        if (!inlineLine) {
+          inlineLine = document.createElement('div');
+          inlineLine.className = 'inline-drop-line';
+          zoneEl.appendChild(inlineLine);
+        }
+      });
+      zoneEl.addEventListener('mouseleave', () => {
+        if (inlineLine && inlineLine.parentNode === zoneEl) zoneEl.removeChild(inlineLine);
+        inlineLine = null;
+      });
+
+      zoneEl.addEventListener('pointerup', (ev) => {
+        if (!state.dragActive) return;
+        ev.preventDefault();
+        const insertIndex = zoneEl._parentSections.indexOf(zoneEl._section) + 1;
+        console.debug('pointerup on section footer while dragging', { section: describeNode(zoneEl._section), parentSections: describeArray(zoneEl._parentSections), insertIndex });
+        if (insertIndex > 0) {
+          dragApi.dropHere(state.draggedMeta, zoneEl._parentSections, insertIndex);
         } else {
           dragApi.cancelDrag();
         }
@@ -356,7 +412,7 @@ function createDropMarker() {
     if (!state.dropMarker) return;
     const el = document.elementFromPoint(clientX, clientY);
     if (!el) return;
-    const lineEl = el.closest ? el.closest('.line, .section') : null;
+    const lineEl = el.closest ? el.closest('.line, .section, .top-drop-zone, .section-footer-drop-zone') : null;
     if (!lineEl) {
       const container = window.ShoppingApp.container;
       const rect = container.getBoundingClientRect();
@@ -393,16 +449,43 @@ function createDropMarker() {
       const header = lineEl.querySelector('.section-header') || lineEl;
       const section = header && header._section;
       if (section) {
+        const rect = lineEl.getBoundingClientRect();
+        const isNearTop = clientY < rect.top + rect.height / 2;
         state.targetParentArray = section.items;
-        state.targetIndex = 0;
-        const headerRect = header.getBoundingClientRect();
-        state.dropMarker.style.left = headerRect.left + 'px';
-        state.dropMarker.style.width = headerRect.width + 'px';
-        state.dropMarker.style.top = (headerRect.bottom + window.scrollY) + 'px';
+        state.targetIndex = isNearTop ? 0 : section.items.length;
+        const markerTop = isNearTop ? rect.top + window.scrollY : rect.bottom + window.scrollY;
+        state.dropMarker.style.left = rect.left + 'px';
+        state.dropMarker.style.width = rect.width + 'px';
+        state.dropMarker.style.top = markerTop + 'px';
         state.dropMarker.classList.remove('hidden');
-        console.debug('computeAndShowTarget: on .section', { section: describeNode(section), targetParentArray: describeArray(state.targetParentArray), targetIndex: state.targetIndex });
+        console.debug('computeAndShowTarget: on .section', { section: describeNode(section), isNearTop, targetParentArray: describeArray(state.targetParentArray), targetIndex: state.targetIndex });
         return;
       }
+    }
+
+    if (lineEl.classList.contains('top-drop-zone')) {
+      const rect = lineEl.getBoundingClientRect();
+      state.targetParentArray = lineEl._mainItemsArray;
+      state.targetIndex = 0;
+      state.dropMarker.style.left = rect.left + 'px';
+      state.dropMarker.style.width = rect.width + 'px';
+      state.dropMarker.style.top = (rect.top + window.scrollY) + 'px';
+      state.dropMarker.classList.remove('hidden');
+      console.debug('computeAndShowTarget: on .top-drop-zone', { targetParentArray: describeArray(state.targetParentArray), targetIndex: state.targetIndex });
+      return;
+    }
+
+    if (lineEl.classList.contains('section-footer-drop-zone')) {
+      const rect = lineEl.getBoundingClientRect();
+      const insertIndex = lineEl._parentSections.indexOf(lineEl._section) + 1;
+      state.targetParentArray = lineEl._parentSections;
+      state.targetIndex = insertIndex;
+      state.dropMarker.style.left = rect.left + 'px';
+      state.dropMarker.style.width = rect.width + 'px';
+      state.dropMarker.style.top = (rect.bottom + window.scrollY) + 'px';
+      state.dropMarker.classList.remove('hidden');
+      console.debug('computeAndShowTarget: on .section-footer-drop-zone', { section: describeNode(lineEl._section), targetParentArray: describeArray(state.targetParentArray), targetIndex: state.targetIndex });
+      return;
     }
 
     state.dropMarker.style.display = 'none';

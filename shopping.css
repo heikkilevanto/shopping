@@ -173,6 +173,15 @@ body {
   opacity: 0.6;
 }
 
+/* ===== Drop Zones ===== */
+.top-drop-zone,
+.section-footer-drop-zone {
+  height: 1em;
+  cursor: pointer;
+  /* background: rgba(0,0,255,0.1); */ /* uncomment for debugging */
+  margin: 0.2em 0;
+}
+
 /* ===== Ghost Element (during drag) ===== */
 .drag-ghost {
   position: fixed;
