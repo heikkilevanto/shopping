@@ -2,6 +2,9 @@
 use strict;
 use warnings;
 use File::Copy qw(copy);
+use CGI;
+use lib '.';
+use login;
 
 use feature 'unicode_strings';
 use utf8;  # Source code and string literals are utf-8
@@ -11,7 +14,13 @@ binmode STDERR, ":utf8";
 
 # --- configuration ---
 my $base_dir = "data";       # relative to index.cgi
-my $username = $ENV{REMOTE_USER} || "heikki";  # from HTTP auth
+
+my $q = CGI->new;
+my $c = { cgi => $q };
+login::authenticate($c);
+login::prepare_cookie($c);
+
+my $username = $c->{username};
 my $path_info= $ENV{PATH_INFO} || "shop";
 $path_info =~ s/ /_/g;  # skip spaces
 
@@ -50,16 +59,19 @@ if ($ENV{REQUEST_METHOD} eq 'GET' && ($path_info eq '' || $path_info eq '/') ) {
       chdir $userdir or error (500, "", "Can not chdir to $userdir");
       my $flist = `ls -t *.json`;
       chomp($flist);
-      print STDERR "Got flist: '$flist' \n";
       my @files = split(/\n/, $flist);
       if (defined $limit) {
         @files = @files[0 .. ($limit-1)] if scalar(@files) > $limit;
       }
       if (@files) {
         s/([^.]+)\.json/"$1"/ for @files;
-        print "Content-Type: application/json\r\n\r\n";
-        print "[", join(",", @files), "]\n";
-        print STDERR "Returning list of files: [", join(",", @files), "]\n";
+        my $joined = "[" . join(",", @files) . "]";
+        print "Content-Type: application/json\r\n";
+        print "Set-Cookie: $c->{auth_cookie}\r\n\r\n";
+        print "$joined\n";
+        my @t = localtime;
+        my $ts = sprintf("%04d-%02d-%02d %02d:%02d:%02d", $t[5]+1900, $t[4]+1, $t[3], $t[2], $t[1], $t[0]);
+        print STDERR "\n$ts Returning list of files: $joined\n";
       } else {
           print "<p>No lists found.</p>\n";
       }
@@ -79,14 +91,16 @@ elsif ( $ENV{REQUEST_METHOD} eq 'GET' ) {  # return file contents
     my $if_modified_since = $ENV{HTTP_IF_MODIFIED_SINCE} || '';
     if ($if_modified_since eq $last_modified) {
         print "Status: 304 Not Modified\r\n";
-        print "Last-Modified: $last_modified\r\n\r\n";
+        print "Last-Modified: $last_modified\r\n";
+        print "Set-Cookie: $c->{auth_cookie}\r\n\r\n";
         exit 0;
     }
     
     open my $fh, "<:encoding(UTF-8)", "$fullfile" or
       error ("500","","Can not open '$fullfile'");
     print "Content-Type: application/json; charset=UTF-8\r\n";
-    print "Last-Modified: $last_modified\r\n\r\n";
+    print "Last-Modified: $last_modified\r\n";
+    print "Set-Cookie: $c->{auth_cookie}\r\n\r\n";
     local $/;
     print <$fh>;
     close $fh;
@@ -126,7 +140,8 @@ elsif ($ENV{REQUEST_METHOD} eq 'POST') {
     my $last_modified = format_last_modified($mtime);
     
     print "Content-Type: text/plain; charset=utf-8\r\n";
-    print "Last-Modified: $last_modified\r\n\r\n";
+    print "Last-Modified: $last_modified\r\n";
+    print "Set-Cookie: $c->{auth_cookie}\r\n\r\n";
     print "OK\n";
 }
 
@@ -137,7 +152,8 @@ elsif ($ENV{REQUEST_METHOD} eq 'DELETE') {
       my $del = "$fullfile.DEL";
       unlink ($del) if -f $del;
       rename($fullfile, $del) or error (500, "Internal Error", "Could not rename to $del");
-      print "Status: 204 No Content\n\n";
+      print "Status: 204 No Content\r\n";
+      print "Set-Cookie: $c->{auth_cookie}\r\n\r\n";
     } else {
       error(404, "Not Found", "File '$fullfile' not found");
     }
@@ -154,7 +170,8 @@ sub error {
   my $msg = shift || "Unspecified error";
   $file = "" unless $file;
   print STDERR "ERROR: $ENV{REQUEST_METHOD} $file Error $code: $msg \n";
-  print "Status: $code $codetext \r\n\r\n";
+  print "Status: $code $codetext \r\n";
+  print "Set-Cookie: $c->{auth_cookie}\r\n\r\n" if $c && $c->{auth_cookie};
   print "$msg \n";
   exit;
 }

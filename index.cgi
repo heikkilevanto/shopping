@@ -1,5 +1,17 @@
 #!/usr/bin/perl
 use File::stat;
+use CGI;
+use lib '.';
+use login;
+
+my $q = CGI->new;
+my $c = { cgi => $q };
+login::authenticate($c);
+login::prepare_cookie($c);
+
+print "Content-Type: text/html; charset=UTF-8\r\n";
+print "Set-Cookie: $c->{auth_cookie}\r\n";
+print "\r\n";
 
 print <<'END';
 
@@ -29,7 +41,7 @@ sub scriptlink {
   }
 }
 
-my $user = $ENV{REMOTE_USER} // '??';
+my $user = $c->{username} // '??';
 $user = ucfirst($user);
 print "<script>const currentUser = '$user';</script>\n";
 

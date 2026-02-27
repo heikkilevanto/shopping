@@ -2,6 +2,8 @@
 use strict;
 use warnings;
 use CGI;
+use lib '.';
+use login;
 use File::Basename qw(dirname basename);
 use File::Path qw(make_path);
 use POSIX qw(strftime);
@@ -12,11 +14,14 @@ use utf8;
 binmode STDERR, ":utf8";
 
 my $photos_dir = "photo";     # sibling to data/
-my $remote_user = $ENV{REMOTE_USER} || "heikki";
 my $path_info = $ENV{PATH_INFO} || ""; # e.g. /upload or /user/filename
 $path_info =~ s/\s/_/g;
 
 my $q = CGI->new;
+my $c = { cgi => $q };
+login::authenticate($c);
+login::prepare_cookie($c);
+my $remote_user = $c->{username};
 
 if ($ENV{REQUEST_METHOD} eq 'POST') {
     # Expect POST to /upload
@@ -97,7 +102,8 @@ if ($ENV{REQUEST_METHOD} eq 'POST') {
 
     # Return JSON with filename only (no URL)
     binmode STDOUT, ":utf8";  # Safe for JSON response
-    print "Content-Type: application/json; charset=utf-8\r\n\r\n";
+    print "Content-Type: application/json; charset=utf-8\r\n";
+    print "Set-Cookie: $c->{auth_cookie}\r\n\r\n";
     my $json = sprintf('{"ok":true,"filename":"%s","size":%d}', $saved_name, $total);
     print $json, "\n";
     exit;
@@ -149,7 +155,8 @@ elsif ($ENV{REQUEST_METHOD} eq 'GET') {
         print "ETag: $etag\r\n";
         print "Last-Modified: $lastmod\r\n";
         print "Cache-Control: private, max-age=$max_age\r\n";
-        print "Expires: $expires\r\n\r\n";
+        print "Expires: $expires\r\n";
+        print "Set-Cookie: $c->{auth_cookie}\r\n\r\n";
         exit;
     }
 
@@ -160,7 +167,8 @@ elsif ($ENV{REQUEST_METHOD} eq 'GET') {
         print "ETag: $etag\r\n";
         print "Last-Modified: $lastmod\r\n";
         print "Cache-Control: private, max-age=$max_age\r\n";
-        print "Expires: $expires\r\n\r\n";
+        print "Expires: $expires\r\n";
+        print "Set-Cookie: $c->{auth_cookie}\r\n\r\n";
         exit;
     }
 
@@ -175,7 +183,8 @@ elsif ($ENV{REQUEST_METHOD} eq 'GET') {
         print "Last-Modified: $lastmod\r\n";
         print "Cache-Control: private, max-age=$max_age\r\n";
         print "Expires: $expires\r\n";
-        print "Accept-Ranges: bytes\r\n\r\n";
+        print "Accept-Ranges: bytes\r\n";
+        print "Set-Cookie: $c->{auth_cookie}\r\n\r\n";
         my $buf;
         while (my $n = read($fh, $buf, 8192)) {
             print $buf;
@@ -197,7 +206,8 @@ sub return_error {
     $title ||= 'Error';
     $msg ||= '';
     print STDERR "ERROR: $ENV{REQUEST_METHOD} $path_info $code: $msg\n";
-    print "Status: $code $title\r\n\r\n";
+    print "Status: $code $title\r\n";
+    print "Set-Cookie: $c->{auth_cookie}\r\n\r\n" if $c && $c->{auth_cookie};
     print "$msg\n";
     exit;
 }
