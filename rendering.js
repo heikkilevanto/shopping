@@ -80,11 +80,18 @@ function renderItem(container,item,parentItems,parentSection){
     const cb=document.createElement('input');
     cb.type='checkbox';
     cb.checked=item.checked;
+    cb._item=item;
     cb.onchange=()=>{
       item.checked=cb.checked;
-      State.setFocusItem(parentSection);
       render(); // so the filters take effect
       Storage.scheduleSave();
+      // Refocus the checkbox for this item after the DOM is rebuilt
+      requestAnimationFrame(() => {
+        const checkboxes = document.querySelectorAll('input[type="checkbox"]');
+        for (const newCb of checkboxes) {
+          if (newCb._item === item) { newCb.focus(); break; }
+        }
+      });
     };
     line.appendChild(cb);
 
