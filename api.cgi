@@ -109,19 +109,9 @@ elsif ( $ENV{REQUEST_METHOD} eq 'GET' ) {  # return file contents
 elsif ($ENV{REQUEST_METHOD} eq 'POST') {
     error (400, "Bad Request", "Illegal file name" )
       unless ($path_info =~ /^\/?[a-zA-ZåÅæÆøØ0-9_\-]+$/ );
-    binmode STDIN;
     my $cl = $ENV{CONTENT_LENGTH} || 0;
     print STDERR "POSTing '$cl' bytes to '$fullfile' \n";
-    my $new_content = '';
-    my $read_total = 0;
-    my $buffer = '';
-    while ($read_total < $cl) {
-        my $n = read(STDIN, $buffer, $cl - $read_total);
-        die "Failed to read POST data" unless defined $n;
-        last if $n == 0;  # EOF
-        $new_content .= $buffer;
-        $read_total += $n;
-    }
+    my $new_content = $q->param('POSTDATA') // '';
 
     if (-e $fullfile) {
         copy($fullfile, "$fullfile.bak") or error("Backup failed: $!");
