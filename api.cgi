@@ -113,8 +113,10 @@ elsif ($ENV{REQUEST_METHOD} eq 'POST') {
     print STDERR "POSTing '$cl' bytes to '$fullfile' \n";
     my $new_content = $q->param('POSTDATA') // '';
 
-    if (-e $fullfile) {
+    if (-s $fullfile) {
         copy($fullfile, "$fullfile.bak") or error("Backup failed: $!");
+    } elsif (-e $fullfile) {
+        print STDERR "File '$fullfile' is empty, skipping backup\n";
      } else {
        print STDERR "File '$fullfile' does not exist, creating it\n";
     }
