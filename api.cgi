@@ -18,6 +18,7 @@ my $base_dir = "data";       # relative to index.cgi
 my $q = CGI->new;
 my $c = { cgi => $q };
 login::authenticate($c);
+exit 0 if $c->{username} eq '';
 login::prepare_cookie($c);
 
 my $username = $c->{username};

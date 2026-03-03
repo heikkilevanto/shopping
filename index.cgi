@@ -7,6 +7,7 @@ use login;
 my $q = CGI->new;
 my $c = { cgi => $q };
 login::authenticate($c);
+exit 0 if $c->{username} eq '';
 login::prepare_cookie($c);
 
 print "Content-Type: text/html; charset=UTF-8\r\n";
