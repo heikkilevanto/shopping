@@ -126,10 +126,10 @@ window.Util = {
     if (section.bgColor) return section.bgColor;
     
     // Walk up to find a parent with a color
-    let parent = this.findParentSection(currentList.items, section);
+    let parent = Util.findParentSection(currentList.items, section);
     while (parent) {
       if (parent.bgColor) return parent.bgColor;
-      parent = this.findParentSection(currentList.items, parent);
+      parent = Util.findParentSection(currentList.items, parent);
     }
     
     // Fall back to list color
