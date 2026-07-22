@@ -425,6 +425,11 @@ function createStyledMenu(){
       createColorPicker(sm, 'Background: ', State.getCurrentList()?.bgColor || '#ffffff', (val) => {
         if (ShoppingApp.changeCurrentBg) ShoppingApp.changeCurrentBg(val);
       });
+      // Bubbling toggle
+      const isBubbling = State.getCurrentList()?.bubbling;
+      addMenuItem(sm, 'Bubbling: ' + (isBubbling ? 'On' : 'Off'), () => {
+        if (ShoppingApp.toggleBubbling) ShoppingApp.toggleBubbling();
+      });
       // Toggle journal mode
       addMenuItem(sm, 'Toggle Journal Mode', () => {
         if (window.ShoppingApp && typeof ShoppingApp.toggleListType === 'function') {

@@ -113,6 +113,15 @@ window.ShoppingApp = {
   getEffectiveBgColor: Util.getEffectiveBgColor,
   
   // Menu helper callbacks
+  toggleBubbling: () => {
+    const currentList = State.getCurrentList();
+    if (!currentList) return;
+    currentList.bubbling = !currentList.bubbling;
+    Rendering.render();
+    Storage.scheduleSave();
+    Menu.hideMenus();
+  },
+
   changeCurrentBg: (bg) => {
     const currentList = State.getCurrentList();
     if (!currentList) return;

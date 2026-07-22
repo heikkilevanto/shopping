@@ -4,6 +4,40 @@
 
 "use strict";
 
+// ================= Bubbling helpers =================
+
+function bubbleDown(items, item) {
+  const idx = items.indexOf(item);
+  if (idx === -1) return;
+  let insertAt = items.length;
+  for (let i = idx + 1; i < items.length; i++) {
+    const it = items[i];
+    if (it.type !== 'item' || it.checked) {
+      insertAt = i;
+      break;
+    }
+  }
+  if (insertAt === idx + 1) return;
+  items.splice(idx, 1);
+  items.splice(insertAt > idx ? insertAt - 1 : insertAt, 0, item);
+}
+
+function bubbleUp(items, item) {
+  const idx = items.indexOf(item);
+  if (idx === -1) return;
+  let insertAt = 0;
+  for (let i = idx - 1; i >= 0; i--) {
+    const it = items[i];
+    if (it.type !== 'item' || !it.checked) {
+      insertAt = i + 1;
+      break;
+    }
+  }
+  if (insertAt === idx) return;
+  items.splice(idx, 1);
+  items.splice(insertAt > idx ? insertAt - 1 : insertAt, 0, item);
+}
+
 // ================= Build page =================
 const body = document.body;
 
@@ -83,6 +117,11 @@ function renderItem(container,item,parentItems,parentSection){
     cb._item=item;
     cb.onchange=()=>{
       item.checked=cb.checked;
+      const currentList = State.getCurrentList();
+      if (currentList && currentList.bubbling) {
+        if (item.checked) bubbleDown(parentItems, item);
+        else bubbleUp(parentItems, item);
+      }
       render(); // so the filters take effect
       Storage.scheduleSave();
       // Refocus the checkbox for this item after the DOM is rebuilt
